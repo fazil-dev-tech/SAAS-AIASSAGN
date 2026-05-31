@@ -267,7 +267,8 @@ Requirements:
 1. VERY IMPORTANT: Write the answer exactly as a student would write it in their assignment notebook.
 2. Use simple formatting: use <b> for bold, <i> for italics, <br> for new lines, and <p> for paragraphs.
 3. Be comprehensive and academically accurate (target ~${minWords} words).
-4. DO NOT use markdown. DO NOT output \`\`\`html. Output ONLY the raw HTML string for the solution itself.`;
+4. CRITICAL: You MUST properly close EVERY HTML tag (e.g. <b>term</b>). DO NOT wrap the entire answer in bold/strong tags.
+5. DO NOT use markdown. DO NOT output \`\`\`html. Output ONLY the raw HTML string for the solution itself.`;
 
            // Use gpt-4o-mini to save massive cost/limits for large question sets
            const resp = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
@@ -544,13 +545,15 @@ ${rawText.substring(0, 8000)}`;
         const minWords = total > 20 ? 150 : (total > 10 ? 250 : 400);
         const seed = `${Date.now()}-${user?.email}-${Math.random().toString(36).slice(2)}`;
         const prompt = `You are a senior academic professor writing a detailed answer for "${form.subject}".
-Variation seed (ignore this, it makes output unique): ${seed}
+Variation seed: ${seed}
 Question: ${q.text}
 Factual context: ${context || 'Use your knowledge.'}
-
 Write a professional academic answer (target ~${minWords} words).
 Format as clean HTML: use <h4> for sub-headings, <p> for paragraphs, <ul><li> for lists, <strong> for key terms.
-Do NOT wrap in \`\`\`html. Return raw HTML only.`;
+CRITICAL RULES:
+1. You MUST properly close EVERY HTML tag (e.g. <strong>term</strong>).
+2. DO NOT wrap the entire answer in bold/strong tags. Only use <strong> for short specific key terms or headings.
+3. Do NOT wrap in \`\`\`html. Return raw HTML only.`;
 
         // Use gpt-4o-mini to prevent rate-limiting and budget exhaustion on large docs
         const response = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
