@@ -648,7 +648,7 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
       image: { type: 'jpeg', quality: 0.98 }, 
       html2canvas: { scale: 2, useCORS: true, scrollY: 0, letterRendering: true }, 
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li'] }
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.question-label'] }
     };
     
     const worker = window.html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf) => {

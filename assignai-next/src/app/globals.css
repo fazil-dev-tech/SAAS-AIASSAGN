@@ -419,7 +419,11 @@ select.form-control option { background: #ffffff; color: #000000; }
 }
 .question-block {
   margin-bottom: 12mm;
-  page-break-inside: avoid;
+  page-break-inside: auto; /* Allows long answers to break naturally across A4 pages */
+}
+.question-label {
+  page-break-after: avoid; /* Prevents question title from being left at bottom of page alone */
+  break-after: avoid;
 }
 
 /* --- CONTENT CHAPTERS --- */
