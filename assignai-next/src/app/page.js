@@ -637,6 +637,13 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
       await new Promise(r => s.onload = r);
     }
     const el = document.getElementById('report-preview-content');
+    
+    // Hide HTML headers/footers to prevent duplication (jsPDF will draw them natively)
+    const headers = el.querySelectorAll('.report-header');
+    const footers = el.querySelectorAll('.report-footer');
+    headers.forEach(h => h.style.visibility = 'hidden');
+    footers.forEach(f => f.style.visibility = 'hidden');
+
     const opt = { 
       margin: 0,  // CSS handles margins via .report-page padding
       filename: `Report_${form.subject}.pdf`, 
@@ -671,9 +678,13 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
     if (returnBlob) {
       const blob = await worker.outputPdf('blob');
       pdfBlobRef.current = blob;
+      headers.forEach(h => h.style.visibility = 'visible');
+      footers.forEach(f => f.style.visibility = 'visible');
       return blob;
     }
     await worker.save();
+    headers.forEach(h => h.style.visibility = 'visible');
+    footers.forEach(f => f.style.visibility = 'visible');
     toast('PDF downloaded!', 'success');
   };
 
