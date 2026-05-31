@@ -362,6 +362,25 @@ select.form-control option { background: #ffffff; color: #000000; }
   margin-top: auto;   /* Pushes footer to bottom of page */
 }
 
+/* 
+ * EXPORT MODE OVERRIDES:
+ * Used temporarily when html2pdf runs. We strip CSS padding and hide HTML headers,
+ * allowing html2pdf to automatically slice pages with standard margins,
+ * and jsPDF to natively draw the headers in the empty margin space.
+ */
+.pdf-export-mode .report-header,
+.pdf-export-mode .report-footer {
+  display: none !important;
+}
+.pdf-export-mode .report-page,
+.pdf-export-mode .report-body {
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: auto !important;
+  box-shadow: none !important;
+  height: auto !important;
+}
+
 /* --- EVALUATION SHEET --- */
 .eval-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 15mm 0; }
 .eval-header-table {

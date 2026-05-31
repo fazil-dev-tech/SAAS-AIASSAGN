@@ -638,19 +638,17 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
     }
     const el = document.getElementById('report-preview-content');
     
-    // Hide HTML headers/footers to prevent duplication (jsPDF will draw them natively)
-    const headers = el.querySelectorAll('.report-header');
-    const footers = el.querySelectorAll('.report-footer');
-    headers.forEach(h => h.style.visibility = 'hidden');
-    footers.forEach(f => f.style.visibility = 'hidden');
+    // Switch to export mode: hides HTML headers/footers and removes CSS padding
+    // so we can rely purely on html2pdf's native margins and pagination.
+    el.classList.add('pdf-export-mode');
 
     const opt = { 
-      margin: 0,  // CSS handles margins via .report-page padding
+      margin: [25, 20, 25, 25],  // Top, Right, Bottom, Left in mm (forces empty space on EVERY page)
       filename: `Report_${form.subject}.pdf`, 
       image: { type: 'jpeg', quality: 0.98 }, 
       html2canvas: { scale: 2, useCORS: true, scrollY: 0, letterRendering: true }, 
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.report-header', '.report-footer'] }
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li'] }
     };
     
     const worker = window.html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf) => {
@@ -678,14 +676,13 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
     if (returnBlob) {
       const blob = await worker.outputPdf('blob');
       pdfBlobRef.current = blob;
-      headers.forEach(h => h.style.visibility = 'visible');
-      footers.forEach(f => f.style.visibility = 'visible');
+      el.classList.remove('pdf-export-mode');
       return blob;
     }
     await worker.save();
-    headers.forEach(h => h.style.visibility = 'visible');
-    footers.forEach(f => f.style.visibility = 'visible');
+    el.classList.remove('pdf-export-mode');
     toast('PDF downloaded!', 'success');
+    setPdfGenerating(false);
   };
 
   /* ── EXPORT: DOCX ── */
