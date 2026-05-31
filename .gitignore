@@ -1,0 +1,15 @@
+# Ignore temporary generated files
+temp_docx/
+*.zip
+*.pdf
+
+# Ignore legacy files if needed, or maybe commit them?
+# Let's explicitly ignore the temporary folders that were used before
+.legacy/
+
+# Windows specifics
+Thumbs.db
+Desktop.ini
+
+# Ignore node_modules globally just in case
+node_modules/
