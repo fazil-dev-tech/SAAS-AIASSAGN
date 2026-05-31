@@ -682,7 +682,6 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
     await worker.save();
     el.classList.remove('pdf-export-mode');
     toast('PDF downloaded!', 'success');
-    setPdfGenerating(false);
   };
 
   /* ── EXPORT: DOCX ── */
