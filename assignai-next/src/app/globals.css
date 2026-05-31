@@ -421,6 +421,11 @@ select.form-control option { background: #ffffff; color: #000000; }
   margin-bottom: 12mm;
   page-break-inside: auto; /* Allows long answers to break naturally across A4 pages */
 }
+/* Force every question to start on a new page (except the first one to prevent leading blank page) */
+.question-block:not(:first-child) {
+  page-break-before: always;
+  break-before: page;
+}
 .question-label {
   page-break-after: avoid; /* Prevents question title from being left at bottom of page alone */
   break-after: avoid;
