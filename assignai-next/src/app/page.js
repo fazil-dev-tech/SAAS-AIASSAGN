@@ -1230,8 +1230,8 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
                 <button className="btn btn-primary" onClick={() => handleDownload('pdf')} style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>📕 Download PDF</button>
                 <a href="/SIT_Front_Page_Editable.docx" download className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>📄 SIT Front Page</a>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <input type="email" className="form-control" placeholder="email@uni.edu" value={emailTo} onChange={e => setEmailTo(e.target.value)} style={{ width: '200px' }} />
+              <div className="preview-email-group">
+                <input type="email" className="form-control" placeholder="email@uni.edu" value={emailTo} onChange={e => setEmailTo(e.target.value)} />
                 <button className="btn btn-secondary" onClick={sendEmail} disabled={emailSending}>{emailSending ? '⏳ Sending...' : '✉️ Email PDF'}</button>
               </div>
             </div>
