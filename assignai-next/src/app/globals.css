@@ -315,26 +315,21 @@ select.form-control option { background: #ffffff; color: #000000; }
 .cover-pincode { font-size: 14pt; font-weight: bold; margin-bottom: 10mm; }
 .cover-year { font-size: 14pt; font-weight: bold; }
 
-/* --- PAGE LAYOUT --- */
+/* --- PAGE LAYOUT (CONTINUOUS DOCUMENT) --- */
 /*
- * A4 Standard: 210mm x 297mm
- * ISO academic margins: Left 25mm, Right 20mm, Top 20mm, Bottom 20mm
- * Flexbox column keeps header at top, footer at bottom — content never overlaps.
+ * A4 Standard: 210mm width.
+ * Height is continuous on screen to allow natural flow without forced blank gaps.
+ * html2pdf will slice this natively during export.
  */
-.report-page {
+.report-document {
   width: 210mm;
-  min-height: 297mm;
+  min-height: 297mm; /* At least one page tall */
   padding: 0;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   background: white;
-  page-break-after: always;
-  break-after: page;
-}
-.report-page:last-child {
-  page-break-after: auto;
-  break-after: auto;
+  margin: 0 auto;
 }
 .report-header {
   flex-shrink: 0;
@@ -376,7 +371,7 @@ select.form-control option { background: #ffffff; color: #000000; }
 .pdf-export-mode .report-footer {
   display: none !important;
 }
-.pdf-export-mode .report-page,
+.pdf-export-mode .report-document,
 .pdf-export-mode .report-body {
   padding: 0 !important;
   margin: 0 !important;
@@ -417,6 +412,16 @@ select.form-control option { background: #ffffff; color: #000000; }
 .toc-table .toc-desc { width: 65%; }
 .toc-table .toc-page { width: 10%; text-align: center; font-weight: bold; }
 .toc-table tr.main-row td { font-weight: bold; }
+
+.new-unit-break {
+  page-break-before: always;
+  break-before: page;
+  margin-top: 15mm;
+}
+.question-block {
+  margin-bottom: 12mm;
+  page-break-inside: avoid;
+}
 
 /* --- CONTENT CHAPTERS --- */
 .chapter-header { text-align: center; margin-top: 4mm; margin-bottom: 6mm; }

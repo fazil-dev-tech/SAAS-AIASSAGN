@@ -1247,38 +1247,45 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
             <div className="report-page-container" style={{ background: '#94a3b8', padding: '2rem', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
               <div id="report-preview-content" className="a4-container">
 
-                {/* ── ANSWER PAGES ── */}
-                {report.answers.map((a, i) => {
-                  const isNewUnit = i === 0 || a.unit !== report.answers[i - 1].unit;
-                  return (
-                    <div key={i} className="report-page">
-                      <div className="report-header">
-                        <span>Academic year - 2025-26</span>
-                        <span>{form.subject?.split(' | Student:')[0]}</span>
-                      </div>
+                {/* ── CONTINUOUS DOCUMENT ── */}
+                <div className="report-document">
+                  
+                  {/* Single HTML header for screen preview (hidden during PDF export) */}
+                  <div className="report-header">
+                    <span>Academic year - 2025-26</span>
+                    <span>{form.subject?.split(' | Student:')[0]}</span>
+                  </div>
 
-                      <div className="report-body">
-                        {isNewUnit && (
-                          <div className="chapter-header">
-                            <div className="chapter-num">{(a.unit || '').toUpperCase()}</div>
-                          </div>
-                        )}
+                  <div className="report-body">
+                    {report.answers.map((a, i) => {
+                      const isNewUnit = i === 0 || a.unit !== report.answers[i - 1].unit;
+                      return (
+                        <div key={i} className={`question-block ${isNewUnit && i !== 0 ? 'new-unit-break' : ''}`}>
+                          
+                          {isNewUnit && (
+                            <div className="chapter-header">
+                              <div className="chapter-num">{(a.unit || '').toUpperCase()}</div>
+                            </div>
+                          )}
 
-                        <p className="question-label">
-                          <strong style={{ color: '#1F497D' }}>Q{i + 1}:</strong>{' '}
-                          <span style={{ color: '#000', fontWeight: 'normal', fontStyle: 'normal', fontSize: '11pt' }}>{a.text}</span>
-                        </p>
+                          <p className="question-label">
+                            <strong style={{ color: '#1F497D' }}>Q{i + 1}:</strong>{' '}
+                            <span style={{ color: '#000', fontWeight: 'normal', fontStyle: 'normal', fontSize: '11pt' }}>{a.text}</span>
+                          </p>
 
-                        <div className="report-content" dangerouslySetInnerHTML={{ __html: a.answerHTML || 'Error generating answer. Please try again.' }} />
-                      </div>
+                          <div className="report-content" dangerouslySetInnerHTML={{ __html: a.answerHTML || 'Error generating answer. Please try again.' }} />
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                      <div className="report-footer">
-                        <span>Dept of {form.dept}, {form.inst}</span>
-                        <span>Page {i + 1}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                  {/* Single HTML footer for screen preview (hidden during PDF export) */}
+                  <div className="report-footer">
+                    <span>Dept of {form.dept}, {form.inst}</span>
+                    <span>Page Preview</span>
+                  </div>
+
+                </div>
 
               </div>
             </div>
