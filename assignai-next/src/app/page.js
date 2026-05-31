@@ -643,7 +643,7 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
     el.classList.add('pdf-export-mode');
 
     const opt = { 
-      margin: [25, 20, 25, 25],  // Top, Right, Bottom, Left in mm (forces empty space on EVERY page)
+      margin: [25, 0, 25, 0],  // Top and Bottom margins only! (Left/Right handled by CSS padding)
       filename: `Report_${form.subject}.pdf`, 
       image: { type: 'jpeg', quality: 0.98 }, 
       html2canvas: { scale: 2, useCORS: true, scrollY: 0, letterRendering: true }, 

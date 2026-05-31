@@ -323,8 +323,9 @@ select.form-control option { background: #ffffff; color: #000000; }
  */
 .report-document {
   width: 210mm;
-  min-height: 297mm; /* At least one page tall */
-  padding: 0;
+  min-height: 297mm;
+  /* Apply the A4 margins directly as CSS padding (25mm left, 20mm right) */
+  padding: 0 20mm 0 25mm;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -336,24 +337,23 @@ select.form-control option { background: #ffffff; color: #000000; }
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 12mm 20mm 4px 25mm;
+  padding: 12mm 0 4px 0;
   font-size: 9pt;
   font-family: "Times New Roman", Times, serif;
   color: #000;
   border-bottom: 1.5px solid #8B0000;
 }
-/* Content body fills available space between header and footer */
+/* Content body */
 .report-body {
   flex: 1;
-  padding: 8mm 20mm 6mm 25mm;
-  min-height: 0;
+  padding: 8mm 0 6mm 0;
 }
 .report-footer {
   flex-shrink: 0;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 4px 20mm 12mm 25mm;
+  align-items: center;
+  padding: 4px 0 12mm 0;
   font-size: 9pt;
   font-family: "Times New Roman", Times, serif;
   color: #000;
@@ -373,7 +373,6 @@ select.form-control option { background: #ffffff; color: #000000; }
 }
 .pdf-export-mode .report-document,
 .pdf-export-mode .report-body {
-  padding: 0 !important;
   margin: 0 !important;
   min-height: auto !important;
   box-shadow: none !important;
