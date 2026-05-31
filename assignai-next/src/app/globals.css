@@ -332,6 +332,10 @@ select.form-control option { background: #ffffff; color: #000000; }
   page-break-after: always;
   break-after: page;
 }
+.report-page:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
 .report-header {
   flex-shrink: 0;
   display: flex;
