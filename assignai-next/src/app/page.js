@@ -637,13 +637,43 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
       await new Promise(r => s.onload = r);
     }
     const el = document.getElementById('report-preview-content');
-    const opt = { margin: 0, filename: `Report_${form.subject}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+    const opt = { 
+      margin: 0,  // CSS handles margins via .report-page padding
+      filename: `Report_${form.subject}.pdf`, 
+      image: { type: 'jpeg', quality: 0.98 }, 
+      html2canvas: { scale: 2, useCORS: true, scrollY: 0, letterRendering: true }, 
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.report-header', '.report-footer'] }
+    };
+    
+    const worker = window.html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf) => {
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(10);
+        pdf.setTextColor(0, 0, 0);
+        
+        // Header
+        pdf.text('Academic year - 2025-26', 15, 15);
+        const subj = form.subject?.split(' | Student:')[0] || '';
+        pdf.text(subj, 195, 15, { align: 'right' });
+        pdf.setDrawColor(139, 0, 0); // #8B0000
+        pdf.setLineWidth(0.5);
+        pdf.line(15, 18, 195, 18);
+        
+        // Footer
+        pdf.line(15, 282, 195, 282);
+        pdf.text(`Dept of ${form.dept}, ${form.inst}`, 15, 287);
+        pdf.text(`Page ${i}`, 195, 287, { align: 'right' });
+      }
+    });
+
     if (returnBlob) {
-      const blob = await window.html2pdf().set(opt).from(el).outputPdf('blob');
+      const blob = await worker.outputPdf('blob');
       pdfBlobRef.current = blob;
       return blob;
     }
-    await window.html2pdf().set(opt).from(el).save();
+    await worker.save();
     toast('PDF downloaded!', 'success');
   };
 
@@ -716,16 +746,16 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
           <span className="text-gradient">AssignAI</span>
           <span className="badge badge-success" style={{ marginLeft: '0.5rem', fontSize: '0.6rem' }}>PRO</span>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div className="topbar-actions">
           <button className="btn btn-secondary btn-sm" onClick={() => setShowScannerModal(true)} title="Buy Me A Coffee" style={{ padding: '0.3rem 0.75rem', fontSize: '0.85rem' }}>☕ Support Me</button>
           <button className="btn btn-icon btn-secondary" onClick={toggleTheme} title="Toggle theme">{theme === 'dark' ? '☀️' : '🌙'}</button>
           {user && (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem', background: 'var(--surface)', borderRadius: 'var(--radius-full)', border: '1px solid var(--border)', fontSize: '0.85rem' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent), var(--accent2))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.7rem', fontWeight: 'bold' }}>
+              <div className="user-pill">
+                <div className="user-avatar">
                   {(user.user_metadata?.full_name || user.email)?.[0]?.toUpperCase() || 'G'}
                 </div>
-                <span style={{ color: 'var(--text-secondary)' }}>{user.email?.split('@')[0]}</span>
+                <span className="user-email">{user.email?.split('@')[0]}</span>
               </div>
               <button className="btn btn-sm btn-secondary" onClick={signOut}>Sign Out</button>
             </>
@@ -807,7 +837,7 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
             <div className="glass-card hero-section" style={{ padding: '2.5rem 3rem' }}>
               <div className="hero-content">
                 <p className="mono" style={{ color: 'var(--accent)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>WELCOME BACK</p>
-                <h1 style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>
+                <h1 className="hero-title">
                   Hello, <span className="text-gradient">{user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}</span>
                 </h1>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', maxWidth: '400px' }}>
@@ -1194,8 +1224,8 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
         {view === 'preview' && report && (
           <motion.div className="page active" key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5, ease: "easeOut" }} style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Toolbar */}
-            <div className="glass-card" style={{ position: 'sticky', top: '1rem', zIndex: 100, padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div className="preview-topbar glass-card">
+              <div className="preview-actions">
                 <button className="btn btn-secondary" onClick={() => setView('dashboard')}>← Dashboard</button>
                 <button className="btn btn-primary" onClick={() => handleDownload('pdf')} style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>📕 Download PDF</button>
                 <a href="/SIT_Front_Page_Editable.docx" download className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>📄 SIT Front Page</a>
@@ -1207,7 +1237,7 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
             </div>
 
             {/* A4 Preview */}
-            <div style={{ background: '#94a3b8', padding: '2rem', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
+            <div className="report-page-container" style={{ background: '#94a3b8', padding: '2rem', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
               <div id="report-preview-content" className="a4-container">
 
                 {/* ── ANSWER PAGES ── */}
@@ -1215,21 +1245,27 @@ Do NOT wrap in \`\`\`html. Return raw HTML only.`;
                   const isNewUnit = i === 0 || a.unit !== report.answers[i - 1].unit;
                   return (
                     <div key={i} className="report-page">
-                      <div className="report-header" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #8B0000', paddingBottom: '5px', marginBottom: '20px' }}>
+                      <div className="report-header">
                         <span>Academic year - 2025-26</span>
                         <span>{form.subject?.split(' | Student:')[0]}</span>
                       </div>
-                      
-                      {isNewUnit && (
-                        <div className="chapter-header" style={{ textAlign: 'center', marginBottom: '20px' }}>
-                          <div className="chapter-num" style={{ fontSize: '24pt', fontWeight: 'bold' }}>{(a.unit || '').toUpperCase()}</div>
-                        </div>
-                      )}
-                      
-                      <p style={{ fontStyle: 'italic', color: '#1F497D', marginBottom: '1.5rem', fontSize: '14pt', fontWeight: 'bold' }}><strong>Q{i + 1}:</strong> <span style={{ color: '#000', fontWeight: 'normal' }}>{a.text}</span></p>
-                      <div className="report-content" dangerouslySetInnerHTML={{ __html: a.answerHTML || 'Error generating answer. Please try again.' }} />
-                      
-                      <div className="report-footer" style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #8B0000', paddingTop: '5px', marginTop: '20px' }}>
+
+                      <div className="report-body">
+                        {isNewUnit && (
+                          <div className="chapter-header">
+                            <div className="chapter-num">{(a.unit || '').toUpperCase()}</div>
+                          </div>
+                        )}
+
+                        <p className="question-label">
+                          <strong style={{ color: '#1F497D' }}>Q{i + 1}:</strong>{' '}
+                          <span style={{ color: '#000', fontWeight: 'normal', fontStyle: 'normal', fontSize: '11pt' }}>{a.text}</span>
+                        </p>
+
+                        <div className="report-content" dangerouslySetInnerHTML={{ __html: a.answerHTML || 'Error generating answer. Please try again.' }} />
+                      </div>
+
+                      <div className="report-footer">
                         <span>Dept of {form.dept}, {form.inst}</span>
                         <span>Page {i + 1}</span>
                       </div>
