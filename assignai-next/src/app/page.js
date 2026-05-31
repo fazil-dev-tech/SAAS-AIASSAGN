@@ -265,7 +265,7 @@ export default function Home() {
 Question: ${q.text}
 Requirements:
 1. VERY IMPORTANT: Write the answer exactly as a student would write it in their assignment notebook.
-2. Use simple formatting: use <b> for bold, <i> for italics, <br> for new lines, and <p> for paragraphs.
+2. Use simple formatting: use <b> for bold, <i> for italics, <br> for new lines, and <p> for short paragraphs (max 4-5 sentences).
 3. Be EXTREMELY comprehensive and highly detailed (target ~${minWords} words) to completely fill a full A4 page.
 4. CRITICAL: You MUST properly close EVERY HTML tag (e.g. <b>term</b>). DO NOT wrap the entire answer in bold/strong tags.
 5. DO NOT use markdown. DO NOT output \`\`\`html. Output ONLY the raw HTML string for the solution itself.`;
@@ -575,7 +575,7 @@ Variation seed: ${seed}
 Question: ${q.text}
 Factual context: ${context || 'Use your knowledge.'}
 Write a comprehensive, professional academic answer (target ~${minWords} words). It MUST be highly detailed to completely fill a full A4 page.
-Format as clean HTML: use <h4> for sub-headings, <p> for paragraphs, <ul><li> for lists, <strong> for key terms.
+Format as clean HTML: use <h4> for sub-headings, <p> for short paragraphs (max 4-5 sentences), <ul><li> for lists, <strong> for key terms.
 CRITICAL RULES:
 1. You MUST properly close EVERY HTML tag (e.g. <strong>term</strong>).
 2. DO NOT wrap the entire answer in bold/strong tags. Only use <strong> for short specific key terms or headings.
@@ -699,7 +699,7 @@ CRITICAL RULES:
       image: { type: 'jpeg', quality: 0.98 }, 
       html2canvas: { scale: 2, useCORS: true, scrollY: 0, letterRendering: true }, 
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.question-label'] }
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.question-label', 'p', 'tr', 'td'] }
     };
     
     const worker = window.html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf) => {
