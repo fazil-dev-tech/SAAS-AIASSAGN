@@ -259,28 +259,50 @@ export default function Home() {
         const answers = [];
         for (let j = 0; j < extractedQuestions.length; j++) {
            const q = extractedQuestions[j];
-           const minWords = extractedQuestions.length > 20 ? 150 : (extractedQuestions.length > 10 ? 250 : 400);
+           const minWords = 450; // Force highly detailed 1-page length
            const puter = window.puter;
            const prompt = `You are a student (${student.name}, USN: ${student.roll}) answering this specific question for ${form.subject}.
 Question: ${q.text}
 Requirements:
 1. VERY IMPORTANT: Write the answer exactly as a student would write it in their assignment notebook.
 2. Use simple formatting: use <b> for bold, <i> for italics, <br> for new lines, and <p> for paragraphs.
-3. Be comprehensive and academically accurate (target ~${minWords} words).
+3. Be EXTREMELY comprehensive and highly detailed (target ~${minWords} words) to completely fill a full A4 page.
 4. CRITICAL: You MUST properly close EVERY HTML tag (e.g. <b>term</b>). DO NOT wrap the entire answer in bold/strong tags.
 5. DO NOT use markdown. DO NOT output \`\`\`html. Output ONLY the raw HTML string for the solution itself.`;
 
-           // Use gpt-4o-mini to save massive cost/limits for large question sets
-           const resp = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
            let rawHTML = '';
-           if (typeof resp === 'string') rawHTML = resp;
-           else if (Array.isArray(resp?.message?.content)) rawHTML = resp.message.content.map(c => c.text || '').join('\n');
-           else if (typeof resp?.message?.content === 'string') rawHTML = resp.message.content;
-           else if (resp?.text) rawHTML = resp.text;
-           else if (resp && typeof resp.toString === 'function' && resp.toString() !== '[object Object]') rawHTML = resp.toString();
-           else rawHTML = JSON.stringify(resp) || '';
+           let attempts = 0;
+           let success = false;
+           while (attempts < 3 && !success) {
+             try {
+               const resp = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
+               let currentRaw = '';
+               if (typeof resp === 'string') currentRaw = resp;
+               else if (Array.isArray(resp?.message?.content)) currentRaw = resp.message.content.map(c => c.text || '').join('\n');
+               else if (typeof resp?.message?.content === 'string') currentRaw = resp.message.content;
+               else if (resp?.text) currentRaw = resp.text;
+               else if (resp && typeof resp.toString === 'function' && resp.toString() !== '[object Object]') currentRaw = resp.toString();
+               else currentRaw = JSON.stringify(resp) || '';
+
+               currentRaw = String(currentRaw).replace(/```html/gi, '').replace(/```/g, '').trim();
+               if (currentRaw.length > 50) {
+                 rawHTML = currentRaw;
+                 success = true;
+               } else {
+                 throw new Error("Answer too short");
+               }
+             } catch (e) {
+               attempts++;
+               if (attempts < 3) {
+                 setBatchLogs(l => [...l, `  ⚠️ Q${j+1} failed. Retrying (${attempts}/3)...`]);
+                 await new Promise(r => setTimeout(r, 2000));
+               }
+             }
+           }
            
-           rawHTML = String(rawHTML).replace(/```html/gi, '').replace(/```/g, '');
+           if (!success) {
+             rawHTML = `<p><em>Failed to generate after 3 attempts.</em></p>`;
+           }
            
            // Auto-generate diagram if requested and question mentions image/diagram
            let diagramHtml = '';
@@ -542,38 +564,64 @@ ${rawText.substring(0, 8000)}`;
         const seqNum = i + 1; // Always sequential: 1, 2, 3...
         setGenLogs(l => [...l, { text: `✨ Q${seqNum}: ${q.text.substring(0, 60)}...`, status: 'active' }]);
 
-        const minWords = total > 20 ? 150 : (total > 10 ? 250 : 400);
+        const needsDiagram = includeImages && /diagram|architecture|flowchart|block\s*diagram|structure|draw|image|illustrate|sketch|figure|picture|table/i.test(q.text);
+        
+        // Force full-page answers (target ~450 words) to ensure 1 question = 1 full page.
+        // If it has a diagram, it will naturally push to ~1.5 - 2 pages.
+        const minWords = total > 20 ? 250 : 450; 
         const seed = `${Date.now()}-${user?.email}-${Math.random().toString(36).slice(2)}`;
-        const prompt = `You are a senior academic professor writing a detailed answer for "${form.subject}".
+        const prompt = `You are a senior academic professor writing an extremely detailed and exhaustive answer for "${form.subject}".
 Variation seed: ${seed}
 Question: ${q.text}
 Factual context: ${context || 'Use your knowledge.'}
-Write a professional academic answer (target ~${minWords} words).
+Write a comprehensive, professional academic answer (target ~${minWords} words). It MUST be highly detailed to completely fill a full A4 page.
 Format as clean HTML: use <h4> for sub-headings, <p> for paragraphs, <ul><li> for lists, <strong> for key terms.
 CRITICAL RULES:
 1. You MUST properly close EVERY HTML tag (e.g. <strong>term</strong>).
 2. DO NOT wrap the entire answer in bold/strong tags. Only use <strong> for short specific key terms or headings.
 3. Do NOT wrap in \`\`\`html. Return raw HTML only.`;
 
-        // Use gpt-4o-mini to prevent rate-limiting and budget exhaustion on large docs
-        const response = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
-        
-        // Add a tiny delay to avoid HTTP 429 Too Many Requests if generating huge docs
-        if (total > 5) await new Promise(r => setTimeout(r, 800));
         let answerText = '';
-        if (typeof response === 'string') answerText = response;
-        else if (Array.isArray(response?.message?.content)) answerText = response.message.content.map(c => c.text || '').join('\n');
-        else if (typeof response?.message?.content === 'string') answerText = response.message.content;
-        else if (response?.text) answerText = response.text;
-        else if (response && typeof response.toString === 'function' && response.toString() !== '[object Object]') answerText = response.toString();
-        else answerText = JSON.stringify(response) || '';
+        let attempts = 0;
+        let success = false;
 
-        // Strip markdown HTML blocks
-        answerText = String(answerText).replace(/```html/gi, '').replace(/```/g, '');
+        // Retry loop to ensure NO QUESTION IS MISSED
+        while (attempts < 3 && !success) {
+          try {
+            const response = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
+            if (total > 5) await new Promise(r => setTimeout(r, 800)); // Rate limit protection
+            
+            let currentText = '';
+            if (typeof response === 'string') currentText = response;
+            else if (Array.isArray(response?.message?.content)) currentText = response.message.content.map(c => c.text || '').join('\n');
+            else if (typeof response?.message?.content === 'string') currentText = response.message.content;
+            else if (response?.text) currentText = response.text;
+            else if (response && typeof response.toString === 'function' && response.toString() !== '[object Object]') currentText = response.toString();
+            else currentText = JSON.stringify(response) || '';
+
+            currentText = String(currentText).replace(/```html/gi, '').replace(/```/g, '').trim();
+            
+            if (currentText.length > 50) {
+              answerText = currentText;
+              success = true;
+            } else {
+              throw new Error("Answer too short or blank");
+            }
+          } catch (err) {
+            attempts++;
+            if (attempts < 3) {
+              setGenLogs(l => [...l, { text: `⚠️ Generation failed for Q${seqNum}. Retrying (${attempts}/3)...`, status: 'active' }]);
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+        }
+
+        if (!success) {
+          answerText = `<p><em>Failed to generate answer for this question after 3 attempts. Please try regenerating.</em></p>`;
+        }
 
         // 4. Auto-generate diagram if question mentions diagram/architecture/flowchart/image/draw
         let diagramHtml = '';
-        const needsDiagram = includeImages && /diagram|architecture|flowchart|block\s*diagram|structure|draw|image|illustrate|sketch|figure|picture|table/i.test(q.text);
         if (needsDiagram) {
           setGenLogs(l => [...l, { text: `🎨 Generating diagram for Q${seqNum}...`, status: 'active' }]);
           try {
