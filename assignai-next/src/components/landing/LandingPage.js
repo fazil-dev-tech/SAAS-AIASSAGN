@@ -90,7 +90,7 @@ const BentoCard = ({ children, className, style = {} }) => {
   );
 };
 
-export default function LandingPage({ onStart }) {
+export default function LandingPage({ onStart, isLoggedIn }) {
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], [0, 300]);
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
@@ -137,7 +137,7 @@ export default function LandingPage({ onStart }) {
         </div>
         <div>
           <button onClick={onStart} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.6rem 1.5rem', borderRadius: '100px', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.3s ease' }} onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(236,72,153,0.5)'; }} onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}>
-            Sign In
+            {isLoggedIn ? 'Dashboard' : 'Sign In'}
           </button>
         </div>
       </motion.header>

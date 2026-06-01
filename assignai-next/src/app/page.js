@@ -91,7 +91,7 @@ export default function Home() {
     const savedUser = localStorage.getItem('assignai_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
-      setView('dashboard');
+      // Stay on landing page by default
     }
   }, []);
 
@@ -851,7 +851,7 @@ CRITICAL RULES:
     <AnimatePresence mode="wait">
       {view === 'landing' ? (
         <motion.div key="landing-view" initial={{ opacity: 0, filter: 'blur(20px)', scale: 1.05 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} exit={{ opacity: 0, filter: 'blur(20px)', scale: 0.95 }} transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }} style={{ position: 'absolute', width: '100%', left: 0, top: 0, zIndex: 100, backgroundColor: '#030106', minHeight: '100vh' }}>
-          <LandingPage onStart={() => setView('auth')} />
+          <LandingPage onStart={() => user ? setView('dashboard') : setView('auth')} isLoggedIn={!!user} />
         </motion.div>
       ) : (
         <motion.div key="app-view" initial={{ opacity: 0, filter: 'blur(10px)', y: 20 }} animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }} exit={{ opacity: 0, filter: 'blur(10px)', y: -20 }} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }} style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
