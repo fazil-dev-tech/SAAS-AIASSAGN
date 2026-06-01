@@ -7,12 +7,17 @@ import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 
 // Mouse tracking for parallax
-function Rig() {
+function Rig({ isMobile }) {
   const { camera, mouse } = useThree();
   const vec = new THREE.Vector3();
 
   return useFrame((state) => {
-    camera.position.lerp(vec.set(mouse.x * 2.5, mouse.y * 2.5, camera.position.z), 0.05);
+    if (isMobile) {
+      // Smooth automatic pan for mobile instead of erratic touch jumps
+      camera.position.lerp(vec.set(Math.sin(state.clock.elapsedTime * 0.2) * 1.5, Math.cos(state.clock.elapsedTime * 0.2) * 1.5, 12), 0.02);
+    } else {
+      camera.position.lerp(vec.set(mouse.x * 2.5, mouse.y * 2.5, 10), 0.05);
+    }
     camera.lookAt(0, 0, 0);
   });
 }
@@ -78,10 +83,11 @@ const NeuralCore = () => {
 };
 
 // Dynamic connecting lines representing neural/AI network
-const NetworkLines = () => {
+const NetworkLines = ({ isMobile }) => {
   const points = useMemo(() => {
     const p = [];
-    for (let i = 0; i < 40; i++) {
+    const count = isMobile ? 15 : 40;
+    for (let i = 0; i < count; i++) {
       p.push(new THREE.Vector3(
         (Math.random() - 0.5) * 15,
         (Math.random() - 0.5) * 15,
@@ -89,7 +95,7 @@ const NetworkLines = () => {
       ));
     }
     return p;
-  }, []);
+  }, [isMobile]);
 
   const linesRef = useRef();
   
@@ -146,10 +152,10 @@ export default function Scene3D() {
         <pointLight position={[-10, -10, -10]} intensity={1} color="#3b82f6" />
         
         <NeuralCore />
-        {!isMobile && <NetworkLines />}
+        <NetworkLines isMobile={isMobile} />
         
         {/* Cinematic Particles */}
-        <Stars radius={100} depth={50} count={isMobile ? 500 : 2000} factor={4} saturation={0} fade speed={1} />
+        <Stars radius={100} depth={50} count={isMobile ? 800 : 2000} factor={4} saturation={0} fade speed={1} />
         <Sparkles count={isMobile ? 100 : 300} scale={15} size={4} speed={0.4} opacity={0.4} color="#fbcfe8" noise={1} />
         {!isMobile && <Sparkles count={150} scale={20} size={6} speed={0.6} opacity={0.2} color="#8b5cf6" noise={2} />}
         
@@ -169,15 +175,13 @@ export default function Scene3D() {
           />
         )}
         
-        <Rig />
+        <Rig isMobile={isMobile} />
 
-        {!isMobile && (
-          <EffectComposer disableNormalPass>
-            <Bloom luminanceThreshold={0.1} mipmapBlur intensity={1.5} />
-            <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={[0.001, 0.001]} />
-            <Vignette eskil={false} offset={0.1} darkness={1.1} />
-          </EffectComposer>
-        )}
+        <EffectComposer disableNormalPass multisampling={isMobile ? 0 : 4}>
+          <Bloom luminanceThreshold={0.2} mipmapBlur={!isMobile} intensity={isMobile ? 2.0 : 1.5} />
+          {!isMobile && <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={[0.001, 0.001]} />}
+          <Vignette eskil={false} offset={0.1} darkness={1.1} />
+        </EffectComposer>
       </Canvas>
     </div>
   );
