@@ -44,12 +44,12 @@ const NeuralCore = ({ isMobile }) => {
   });
 
   return (
-    <group position={[0, isMobile ? -3.5 : 0, 0]}>
+    <group position={[0, isMobile ? -5 : 0, 0]}>
       <Float speed={1.5} rotationIntensity={0.8} floatIntensity={1.5}>
         <mesh ref={coreRef} scale={1.8}>
           <icosahedronGeometry args={[1, 2]} />
           {isMobile ? (
-            <meshBasicMaterial color="#ff007f" wireframe transparent opacity={0.6} blending={THREE.AdditiveBlending} />
+            <meshBasicMaterial color="#d946ef" wireframe transparent opacity={0.3} blending={THREE.AdditiveBlending} />
           ) : (
             <meshPhysicalMaterial 
               color="#0a0a0a" emissive="#db2777" emissiveIntensity={0.6}
@@ -61,7 +61,7 @@ const NeuralCore = ({ isMobile }) => {
         <mesh ref={outerRef} scale={2.5}>
           <icosahedronGeometry args={[1, 1]} />
           {isMobile ? (
-            <meshBasicMaterial color="#db2777" wireframe transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+            <meshBasicMaterial color="#7e22ce" wireframe transparent opacity={0.15} blending={THREE.AdditiveBlending} />
           ) : (
             <meshPhysicalMaterial 
               color="#db2777" emissive="#000000" emissiveIntensity={0}
@@ -73,7 +73,7 @@ const NeuralCore = ({ isMobile }) => {
         {/* Inner solid glowing core */}
         <mesh scale={0.5}>
           <sphereGeometry args={[1, 32, 32]} />
-          <meshBasicMaterial color={isMobile ? "#ffffff" : "#fce7f3"} />
+          <meshBasicMaterial color={isMobile ? "#4c1d95" : "#fce7f3"} />
         </mesh>
 
         {/* Fake Bloom Glow for mobile */}
@@ -81,9 +81,9 @@ const NeuralCore = ({ isMobile }) => {
           <mesh scale={3.5}>
             <sphereGeometry args={[1, 32, 32]} />
             <meshBasicMaterial 
-              color="#db2777" 
+              color="#9d174d" 
               transparent 
-              opacity={0.15} 
+              opacity={0.1} 
               blending={THREE.AdditiveBlending} 
               depthWrite={false}
             />
@@ -161,7 +161,7 @@ export default function Scene3D() {
       
       {/* Pure CSS Fallback: Guaranteed to show even if WebGL completely crashes in WhatsApp/Embedded browsers */}
       {isMobile && (
-        <div style={{ position: 'absolute', top: '70%', left: '50%', transform: 'translate(-50%, -50%)', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,0,127,0.4) 0%, rgba(219,39,119,0.1) 40%, transparent 70%)', boxShadow: '0 0 100px rgba(255,0,127,0.3)', zIndex: 1 }} />
+        <div style={{ position: 'absolute', top: '80%', left: '50%', transform: 'translate(-50%, -50%)', width: '250px', height: '250px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(126,34,206,0.2) 0%, rgba(219,39,119,0.05) 50%, transparent 70%)', filter: 'blur(15px)', zIndex: 1 }} />
       )}
 
       <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={isMobile ? 1 : [1, 2]} style={{ position: 'relative', zIndex: 2 }}>
