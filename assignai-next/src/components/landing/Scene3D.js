@@ -44,7 +44,7 @@ const NeuralCore = ({ isMobile }) => {
   });
 
   return (
-    <group position={[0, 0, 0]}>
+    <group position={[0, isMobile ? -3.5 : 0, 0]}>
       <Float speed={1.5} rotationIntensity={0.8} floatIntensity={1.5}>
         <mesh ref={coreRef} scale={1.8}>
           <icosahedronGeometry args={[1, 2]} />

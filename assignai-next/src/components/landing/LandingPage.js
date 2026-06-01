@@ -152,7 +152,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
 
       {/* Hero Section */}
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 2rem' }}>
-        <motion.div variants={staggerContainer} initial="hidden" animate="show" style={{ textAlign: 'center', maxWidth: '1000px', marginTop: '-5vh' }}>
+        <motion.div variants={staggerContainer} initial="hidden" animate="show" style={{ textAlign: 'center', maxWidth: '1000px', marginTop: isMobile ? '80px' : '-5vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           
           <motion.div variants={springUp} style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
             <div style={{ padding: '0.5rem 1.5rem', background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.2)', borderRadius: '100px', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -161,11 +161,11 @@ export default function LandingPage({ onStart, isLoggedIn }) {
             </div>
           </motion.div>
 
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', width: '100%' }}>
             {/* Soft dark glow behind text for contrast against 3D scene */}
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '120%', height: '140%', background: 'radial-gradient(ellipse at center, rgba(3,1,6,0.6) 0%, transparent 70%)', zIndex: -1, pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: isMobile ? '160%' : '120%', height: isMobile ? '160%' : '140%', background: `radial-gradient(ellipse at center, rgba(3,1,6,${isMobile ? '0.85' : '0.6'}) 0%, transparent 70%)`, zIndex: -1, pointerEvents: 'none' }} />
             
-            <motion.h1 variants={springUp} style={{ fontFamily: 'var(--font-ui)', fontSize: 'clamp(3.5rem, 9vw, 8rem)', lineHeight: 1.05, marginBottom: '2rem', fontWeight: 900, letterSpacing: '-0.05em' }}>
+            <motion.h1 variants={springUp} style={{ fontFamily: 'var(--font-ui)', fontSize: 'clamp(2.8rem, 11vw, 8rem)', lineHeight: 1.05, marginBottom: '1.5rem', fontWeight: 900, letterSpacing: '-0.05em' }}>
               Academic Reports,<br />
               <motion.span 
                 animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
@@ -183,17 +183,17 @@ export default function LandingPage({ onStart, isLoggedIn }) {
             </motion.h1>
           </div>
 
-          <motion.p variants={springUp} style={{ fontFamily: 'var(--font-ui)', fontSize: 'clamp(1.1rem, 2vw, 1.4rem)', color: '#cbd5e1', marginBottom: '3.5rem', maxWidth: '750px', marginInline: 'auto', lineHeight: 1.6, fontWeight: 400, letterSpacing: '-0.01em' }}>
+          <motion.p variants={springUp} style={{ fontFamily: 'var(--font-ui)', fontSize: 'clamp(1rem, 4.5vw, 1.4rem)', color: '#cbd5e1', marginBottom: '3rem', maxWidth: '750px', width: '100%', marginInline: 'auto', lineHeight: 1.6, fontWeight: 400, letterSpacing: '-0.01em', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
             Harness the power of god-level AI to instantly compile, format, and illustrate 
             SIT VTU standard documents. Precision engineering for your academic workflow.
           </motion.p>
 
-          <motion.div variants={springUp} style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <motion.div variants={springUp} style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '1.2rem', justifyContent: 'center', width: isMobile ? '100%' : 'auto' }}>
             <motion.button 
               whileHover={{ scale: 1.05, boxShadow: '0 0 40px rgba(236,72,153,0.6)' }}
               whileTap={{ scale: 0.95 }}
               onClick={onStart}
-              style={{ fontSize: '1.1rem', fontWeight: 600, padding: '1.2rem 3rem', borderRadius: '100px', background: 'linear-gradient(135deg, #db2777, #7e22ce)', border: 'none', color: '#fff', cursor: 'pointer', boxShadow: '0 0 20px rgba(236,72,153,0.3)', position: 'relative', overflow: 'hidden' }}
+              style={{ width: isMobile ? '100%' : 'auto', fontSize: '1.05rem', fontWeight: 600, padding: '1.2rem 2.5rem', borderRadius: '100px', background: 'linear-gradient(135deg, #db2777, #7e22ce)', border: 'none', color: '#fff', cursor: 'pointer', boxShadow: '0 0 20px rgba(236,72,153,0.3)', position: 'relative', overflow: 'hidden' }}
             >
               <div style={{ position: 'absolute', top: 0, left: '-100%', width: '50%', height: '100%', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)', transform: 'skewX(-20deg)', animation: 'sweep 3s infinite' }} />
               Initialize Workspace
@@ -201,8 +201,10 @@ export default function LandingPage({ onStart, isLoggedIn }) {
             <motion.button 
               whileHover={{ scale: 1.05, background: 'rgba(255,255,255,0.1)' }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => document.getElementById('features').scrollIntoView({ behavior: 'smooth' })}
-              style={{ fontSize: '1.1rem', fontWeight: 600, padding: '1.2rem 3rem', borderRadius: '100px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer', backdropFilter: 'blur(10px)' }}
+              onClick={() => {
+                document.getElementById('architecture-section').scrollIntoView({ behavior: 'smooth' });
+              }}
+              style={{ width: isMobile ? '100%' : 'auto', fontSize: '1.05rem', fontWeight: 600, padding: '1.2rem 2.5rem', borderRadius: '100px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer', backdropFilter: 'blur(10px)', transition: 'background 0.3s ease' }}
             >
               View Architecture
             </motion.button>
