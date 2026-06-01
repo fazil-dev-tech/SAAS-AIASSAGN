@@ -91,6 +91,14 @@ const BentoCard = ({ children, className, style = {} }) => {
 };
 
 export default function LandingPage({ onStart, isLoggedIn }) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], [0, 300]);
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
@@ -113,7 +121,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
     <div style={{ position: 'relative', width: '100%', minHeight: '100vh', backgroundColor: '#030106', color: '#fff' }}>
       
       {/* 3D Background with Parallax */}
-      <motion.div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', zIndex: 0, y, opacity }}>
+      <motion.div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100vh', zIndex: 0, y: isMobile ? 0 : y, opacity: isMobile ? 1 : opacity }}>
         <Scene3D />
       </motion.div>
       
@@ -220,15 +228,15 @@ export default function LandingPage({ onStart, isLoggedIn }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '1.5rem', autoRows: 'minmax(300px, auto)' }}>
             
             {/* Massive Hero Feature */}
-            <BentoCard style={{ gridColumn: 'span 12', padding: '4rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: 'linear-gradient(145deg, rgba(236,72,153,0.05), rgba(0,0,0,0))' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 400px' }}>
+            <BentoCard style={{ gridColumn: 'span 12', padding: 'clamp(1.5rem, 5vw, 4rem)', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: 'linear-gradient(145deg, rgba(236,72,153,0.05), rgba(0,0,0,0))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(1.5rem, 5vw, 3rem)', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 min(100%, 400px)' }}>
                   <div style={{ width: '60px', height: '60px', borderRadius: '16px', background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', marginBottom: '2rem' }}>⚡</div>
                   <h3 style={{ fontFamily: 'var(--font-ui)', fontSize: '2.5rem', fontWeight: 800, marginBottom: '1.5rem', letterSpacing: '-0.03em' }}>Puter AI Engine Integration</h3>
                   <p style={{ fontFamily: 'var(--font-ui)', color: '#94a3b8', fontSize: '1.2rem', lineHeight: 1.6 }}>Powered by advanced LLMs that parse complex academic assignments. It doesn't just answer questions; it structures them specifically for university standards, handling complex formatting natively.</p>
                 </div>
                 {/* Abstract Visualizer for the card */}
-                <div style={{ flex: '1 1 300px', minHeight: '300px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ flex: '1 1 min(100%, 300px)', minHeight: '300px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
                   {/* Conic border spin */}
                   <div style={{ position: 'absolute', width: '150%', height: '150%', background: 'conic-gradient(from 90deg at 50% 50%, rgba(3,1,6,1) 0%, rgba(236,72,153,0.3) 50%, rgba(3,1,6,1) 100%)', animation: 'spin 6s linear infinite' }} />
                   
@@ -253,7 +261,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
                     </div>
 
                     {/* Bottom AI Processing Status */}
-                    <div style={{ position: 'relative', zIndex: 1, marginTop: '2rem', display: 'flex', alignItems: 'center', gap: 'clamp(0.5rem, 3vw, 1.2rem)', padding: 'clamp(0.75rem, 3vw, 1.2rem)', background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '14px', backdropFilter: 'blur(5px)' }}>
+                    <div style={{ position: 'relative', zIndex: 1, marginTop: '2rem', display: 'flex', alignItems: 'center', gap: 'clamp(0.4rem, 2vw, 1.2rem)', padding: 'clamp(0.5rem, 2vw, 1.2rem)', background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '14px', backdropFilter: 'blur(5px)' }}>
                        {/* Spinning AI Orb */}
                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'conic-gradient(from 0deg, #db2777, #7e22ce, transparent)', animation: 'spin 2s linear infinite', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 15px rgba(236,72,153,0.3)' }}>
                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -278,21 +286,21 @@ export default function LandingPage({ onStart, isLoggedIn }) {
             </BentoCard>
 
             {/* Sub Feature 1 */}
-            <BentoCard className="bento-sub" style={{ padding: '3rem' }}>
+            <BentoCard className="bento-sub" style={{ padding: 'clamp(1.5rem, 5vw, 3rem)' }}>
               <div style={{ width: '50px', height: '50px', borderRadius: '12px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: '2rem' }}>📄</div>
               <h4 style={{ fontFamily: 'var(--font-ui)', fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '-0.02em' }}>One-Click Export</h4>
               <p style={{ fontFamily: 'var(--font-ui)', color: '#94a3b8', lineHeight: 1.6 }}>Download fully editable Word documents or print-ready PDFs. Formatting is preserved flawlessly.</p>
             </BentoCard>
 
             {/* Sub Feature 2 */}
-            <BentoCard className="bento-sub" style={{ padding: '3rem' }}>
+            <BentoCard className="bento-sub" style={{ padding: 'clamp(1.5rem, 5vw, 3rem)' }}>
               <div style={{ width: '50px', height: '50px', borderRadius: '12px', background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: '2rem' }}>🎨</div>
               <h4 style={{ fontFamily: 'var(--font-ui)', fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '-0.02em' }}>AI Vision Diagrams</h4>
               <p style={{ fontFamily: 'var(--font-ui)', color: '#94a3b8', lineHeight: 1.6 }}>Automatically generate stunning technical illustrations and diagrams injected directly into your reports.</p>
             </BentoCard>
 
             {/* Sub Feature 3 */}
-            <BentoCard className="bento-sub" style={{ padding: '3rem' }}>
+            <BentoCard className="bento-sub" style={{ padding: 'clamp(1.5rem, 5vw, 3rem)' }}>
               <div style={{ width: '50px', height: '50px', borderRadius: '12px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', marginBottom: '2rem' }}>📦</div>
               <h4 style={{ fontFamily: 'var(--font-ui)', fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '-0.02em' }}>Batch Processing</h4>
               <p style={{ fontFamily: 'var(--font-ui)', color: '#94a3b8', lineHeight: 1.6 }}>Upload a class CSV. Spin up 60+ unique, individualized reports in minutes. Complete autonomy.</p>
