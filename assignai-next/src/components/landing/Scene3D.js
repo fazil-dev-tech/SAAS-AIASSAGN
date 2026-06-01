@@ -23,7 +23,7 @@ function Rig({ isMobile }) {
 }
 
 // Sophisticated abstract wireframe core
-const NeuralCore = () => {
+const NeuralCore = ({ isMobile }) => {
   const coreRef = useRef();
   const outerRef = useRef();
   
@@ -49,14 +49,15 @@ const NeuralCore = () => {
         <mesh ref={coreRef} scale={1.8}>
           <icosahedronGeometry args={[1, 2]} />
           <meshPhysicalMaterial 
-            color="#0a0a0a"
+            color={isMobile ? "#ff007f" : "#0a0a0a"}
             emissive="#db2777"
-            emissiveIntensity={0.6}
+            emissiveIntensity={isMobile ? 2 : 0.6}
             roughness={0.2}
             metalness={0.8}
             wireframe={true}
             transparent
-            opacity={0.3}
+            opacity={isMobile ? 0.8 : 0.3}
+            blending={isMobile ? THREE.AdditiveBlending : THREE.NormalBlending}
           />
         </mesh>
         
@@ -64,19 +65,36 @@ const NeuralCore = () => {
           <icosahedronGeometry args={[1, 1]} />
           <meshPhysicalMaterial 
             color="#db2777"
+            emissive={isMobile ? "#db2777" : "#000000"}
+            emissiveIntensity={isMobile ? 1.5 : 0}
             wireframe={true}
             transparent
-            opacity={0.15}
+            opacity={isMobile ? 0.5 : 0.15}
             roughness={0.1}
             metalness={1}
+            blending={isMobile ? THREE.AdditiveBlending : THREE.NormalBlending}
           />
         </mesh>
         
         {/* Inner solid glowing core */}
         <mesh scale={0.5}>
           <sphereGeometry args={[1, 32, 32]} />
-          <meshBasicMaterial color="#fce7f3" />
+          <meshBasicMaterial color={isMobile ? "#ffffff" : "#fce7f3"} />
         </mesh>
+
+        {/* Fake Bloom Glow for mobile */}
+        {isMobile && (
+          <mesh scale={3.5}>
+            <sphereGeometry args={[1, 32, 32]} />
+            <meshBasicMaterial 
+              color="#db2777" 
+              transparent 
+              opacity={0.15} 
+              blending={THREE.AdditiveBlending} 
+              depthWrite={false}
+            />
+          </mesh>
+        )}
       </Float>
     </group>
   );
@@ -151,12 +169,12 @@ export default function Scene3D() {
         <pointLight position={[10, 10, 10]} intensity={1.5} color="#ec4899" />
         <pointLight position={[-10, -10, -10]} intensity={1} color="#3b82f6" />
         
-        <NeuralCore />
-        <NetworkLines isMobile={isMobile} />
+        <NeuralCore isMobile={isMobile} />
+        {!isMobile && <NetworkLines isMobile={isMobile} />}
         
         {/* Cinematic Particles */}
-        <Stars radius={100} depth={50} count={isMobile ? 800 : 2000} factor={4} saturation={0} fade speed={1} />
-        <Sparkles count={isMobile ? 100 : 300} scale={15} size={4} speed={0.4} opacity={0.4} color="#fbcfe8" noise={1} />
+        <Stars radius={100} depth={50} count={isMobile ? 300 : 2000} factor={4} saturation={0} fade speed={1} />
+        <Sparkles count={isMobile ? 50 : 300} scale={15} size={isMobile ? 6 : 4} speed={0.4} opacity={isMobile ? 0.8 : 0.4} color="#fbcfe8" noise={1} />
         {!isMobile && <Sparkles count={150} scale={20} size={6} speed={0.6} opacity={0.2} color="#8b5cf6" noise={2} />}
         
         {/* Infinite Grid for extreme depth scale */}
@@ -177,11 +195,13 @@ export default function Scene3D() {
         
         <Rig isMobile={isMobile} />
 
-        <EffectComposer disableNormalPass multisampling={isMobile ? 0 : 4}>
-          <Bloom luminanceThreshold={0.2} mipmapBlur={!isMobile} intensity={isMobile ? 2.0 : 1.5} />
-          {!isMobile && <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={[0.001, 0.001]} />}
-          <Vignette eskil={false} offset={0.1} darkness={1.1} />
-        </EffectComposer>
+        {!isMobile && (
+          <EffectComposer disableNormalPass multisampling={4}>
+            <Bloom luminanceThreshold={0.2} mipmapBlur={true} intensity={1.5} />
+            <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={[0.001, 0.001]} />
+            <Vignette eskil={false} offset={0.1} darkness={1.1} />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   );
