@@ -72,9 +72,12 @@ export default function Home() {
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+  const [isSplashActive, setIsSplashActive] = useState(true);
 
   useEffect(() => {
     setIsMounted(true);
+    const splashTimer = setTimeout(() => setIsSplashActive(false), 6000);
+    return () => clearTimeout(splashTimer);
   }, []);
 
   /* ── THEME ── */
@@ -874,6 +877,26 @@ CRITICAL RULES:
 
   return (
     <>
+      {/* ══════════════════════════════════════════
+          INITIAL LOAD SPLASH SCREEN (6 Seconds)
+          ══════════════════════════════════════════ */}
+      <AnimatePresence>
+        {isSplashActive && (
+          <motion.div key="intro-splash" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, filter: 'blur(20px)', transition: { duration: 1.5, ease: "easeInOut" } }} style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#030106', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <TransitionScene />
+            <div style={{ position: 'absolute', zIndex: 10, pointerEvents: 'none' }}>
+              <motion.h2 
+                animate={{ opacity: [0.3, 1, 0.3], scale: [0.98, 1, 0.98] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                style={{ fontFamily: 'var(--font-mono)', color: '#fbcfe8', letterSpacing: '4px', textTransform: 'uppercase', fontSize: 'clamp(1rem, 4vw, 1.5rem)', textShadow: '0 0 20px rgba(236,72,153,0.8)', textAlign: 'center' }}
+              >
+                Initializing Workspace...
+              </motion.h2>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     <AnimatePresence mode="wait">
       {view === 'landing' ? (
         <motion.div key="landing-view" initial={{ opacity: 0, filter: 'blur(20px)', scale: 1.05 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} exit={{ opacity: 0, filter: 'blur(20px)', scale: 0.95 }} transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }} style={{ position: 'absolute', width: '100%', left: 0, top: 0, zIndex: 100, backgroundColor: '#030106', minHeight: '100vh' }}>
