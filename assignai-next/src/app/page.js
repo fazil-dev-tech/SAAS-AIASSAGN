@@ -705,8 +705,10 @@ CRITICAL RULES:
     // Force desktop width so mobile doesn't shrink/scatter the PDF
     const oldWidth = el.style.width;
     const oldMaxWidth = el.style.maxWidth;
+    const oldTransform = el.style.transform;
     el.style.width = '1024px';
     el.style.maxWidth = '1024px';
+    el.style.transform = 'none';
 
     if (container) {
       container.style.overflowX = 'visible';
@@ -753,6 +755,7 @@ CRITICAL RULES:
       el.classList.remove('pdf-export-mode');
       el.style.width = oldWidth;
       el.style.maxWidth = oldMaxWidth;
+      el.style.transform = oldTransform;
       if (container) {
         container.style.overflowX = oldOverflow;
         container.style.overflow = '';
@@ -763,6 +766,7 @@ CRITICAL RULES:
     el.classList.remove('pdf-export-mode');
     el.style.width = oldWidth;
     el.style.maxWidth = oldMaxWidth;
+    el.style.transform = oldTransform;
     if (container) {
       container.style.overflowX = oldOverflow;
       container.style.overflow = '';
