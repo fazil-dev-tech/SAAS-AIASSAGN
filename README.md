@@ -1,42 +1,57 @@
-# AssignAI Premium — Advanced Academic Report Generator
+<div align="center">
+  
+  # 🚀 AssignAI Premium
+  **Advanced Academic Report & Bio-Data Generator powered by AI**
+  
+  [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+  [![React](https://img.shields.io/badge/React-18-blue?style=for-the-badge&logo=react)](https://react.dev/)
+  [![TailwindCSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+  [![AI Powered](https://img.shields.io/badge/AI-Powered-FF4154?style=for-the-badge&logo=openai)](https://assignai-reports.vercel.app/)
 
-AssignAI is a single-page, serverless application that leverages AI (Puter.js) to automate the generation of high-quality, professional academic reports from assignment questions.
+  <br />
+  <p>
+    An intelligent, serverless application that leverages AI to automate the generation of high-quality, professional academic reports, bio-data, and assignments. 
+    Built with modern web technologies for a seamless, pixel-perfect user experience.
+  </p>
+</div>
 
-## Core Features Implemented
+---
 
-1. **True PDF Extraction**: Integrates `PDF.js` to parse text directly from uploaded PDF question papers, eliminating the need for manual copy-pasting.
-2. **AI Question Parsing**: Uses Puter.js AI to intelligently extract structured questions from raw PDF text.
-3. **Magic Link Authentication**: Secure, passwordless login using Supabase OTP (One-Time Password) via email.
-4. **Multi-Student Configuration**: Dynamically supports 1-4 students, perfectly mapping their details to the report's cover page and evaluation sheet.
-5. **Pixel-Perfect A4 Templating**: CSS strictly enforces standard university (e.g., SIT VTU) formats including:
-   - Black double-bordered cover page
-   - Evaluation marks table
-   - Table of contents with page references
-   - Chapter-based answer structures
-6. **Robust Export Options**:
-   - **PDF**: Accurate rendering using `html2pdf.js`
-   - **DOCX**: Functional Word document export using `html-docx-js`
-   - **Email Delivery**: Direct, client-side secure SMTP email dispatch (using SMTPJS) with the generated report attached.
-7. **Local Storage Auto-Save**: Forms save state locally to prevent data loss on accidental refreshes.
+## ✨ Core Features
 
-## What is Missing / Recommended Future Additions ("Million Dollar" Scope)
+- 📄 **True PDF Extraction:** Integrates `PDF.js` to intelligently parse text directly from uploaded PDF question papers.
+- 🧠 **AI Question Parsing:** Employs advanced AI agents to extract structured questions from raw documents accurately.
+- 🔐 **Magic Link Authentication:** Secure, passwordless login utilizing Supabase OTP for frictionless access.
+- 👥 **Multi-Student Configuration:** Dynamically configures for 1-4 students, perfectly mapping their details to cover pages and evaluation sheets.
+- 🖨️ **Pixel-Perfect A4 Templating:** Strict CSS formats for standard university requirements, including double-bordered covers and marks tables.
+- 📤 **Robust Export Options:** Export beautifully formatted documents to **PDF** and **DOCX**, or deliver them directly via secure client-side SMTP email dispatch.
 
-While the app is currently highly functional and premium, to scale it to an enterprise/million-dollar level product, the following additions are recommended:
+## 🛠️ Tech Stack
 
-### 1. Backend Architecture (Next.js / Node.js)
-Currently, everything runs client-side. Moving to a dedicated backend allows for:
-- Server-side DOCX generation (e.g., using `docx` node library) for 100% perfect Word formatting (client-side HTML-to-DOCX is inherently limited by browser engines).
-- Hiding the SMTP credentials completely (currently exposed in client-side JS, which is a security risk for production).
-- Hiding Puter.js/AI API logic to prevent abuse.
+- **Frontend:** Next.js (React), Tailwind CSS
+- **Authentication:** Supabase (Magic Links / OTP)
+- **Document Processing:** PDF.js, html2pdf.js, html-docx-js
+- **AI Integration:** Puter.js
 
-### 2. Batch Processing Pipeline
-Allow professors to upload a CSV of 75 students + 1 Question PDF. The system could queue 75 asynchronous jobs in Supabase Edge Functions to generate and email unique reports to all 75 students in one click.
+## 🚀 Getting Started
 
-### 3. Native Image & Diagram Generation
-The AI generates text answers well, but adding an integration with an AI Image Generator (or Mermaid.js for charts) would allow the reports to automatically include relevant technical diagrams.
+To run this project locally:
 
-### 4. Plagiarism / Uniqueness Scoring
-Integrate a plagiarism checker API to guarantee that if two students generate a report on the same questions, the outputs are verifiably 100% unique.
+```bash
+git clone https://github.com/fazil-dev-tech/assignai-reports.git
+cd assignai-reports/assignai-next
+npm install
+npm run dev
+```
 
-### 5. Custom Template Builder UI
-Instead of hardcoding the SIT VTU format in CSS, build a drag-and-drop template editor so students from *any* university can visually map their required cover page layout.
+## 📞 Tech Solutions & Support
+
+Looking for custom tech solutions, enterprise implementations, or need support with this repository? Let's connect!
+
+- **Contact Number / WhatsApp:** `+91 7019145837`
+- **GitHub Profile:** [@fazil-dev-tech](https://github.com/fazil-dev-tech)
+
+<div align="center">
+  <br/>
+  <i>Built with ❤️ by Fazil. Delivering Premium AI Solutions.</i>
+</div>
