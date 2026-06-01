@@ -233,7 +233,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
                   <div style={{ position: 'absolute', width: '150%', height: '150%', background: 'conic-gradient(from 90deg at 50% 50%, rgba(3,1,6,1) 0%, rgba(236,72,153,0.3) 50%, rgba(3,1,6,1) 100%)', animation: 'spin 6s linear infinite' }} />
                   
                   {/* Inner Card content */}
-                  <div style={{ position: 'absolute', inset: '2px', background: '#0a0a0a', borderRadius: '18px', display: 'flex', flexDirection: 'column', padding: '2.5rem', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', inset: '2px', background: '#0a0a0a', borderRadius: '18px', display: 'flex', flexDirection: 'column', padding: 'clamp(1rem, 5vw, 2.5rem)', overflow: 'hidden' }}>
                     
                     {/* Floating ambient blurs for depth */}
                     <div style={{ position: 'absolute', right: '-20px', top: '20%', width: '150px', height: '150px', background: 'radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)', filter: 'blur(30px)', zIndex: 0 }} />
@@ -253,7 +253,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
                     </div>
 
                     {/* Bottom AI Processing Status */}
-                    <div style={{ position: 'relative', zIndex: 1, marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '1.2rem', padding: '1.2rem', background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '14px', backdropFilter: 'blur(5px)' }}>
+                    <div style={{ position: 'relative', zIndex: 1, marginTop: '2rem', display: 'flex', alignItems: 'center', gap: 'clamp(0.5rem, 3vw, 1.2rem)', padding: 'clamp(0.75rem, 3vw, 1.2rem)', background: 'rgba(236,72,153,0.05)', border: '1px solid rgba(236,72,153,0.15)', borderRadius: '14px', backdropFilter: 'blur(5px)' }}>
                        {/* Spinning AI Orb */}
                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'conic-gradient(from 0deg, #db2777, #7e22ce, transparent)', animation: 'spin 2s linear infinite', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 15px rgba(236,72,153,0.3)' }}>
                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -263,7 +263,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
                        
                        {/* Progress Bar & Text */}
                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1 }}>
-                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fbcfe8', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.5px' }}>
+                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'clamp(0.7rem, 2.5vw, 0.85rem)', color: '#fbcfe8', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.5px' }}>
                            <span style={{ animation: 'pulse 2s ease-in-out infinite' }}>Synthesizing...</span>
                            <span>84%</span>
                          </div>

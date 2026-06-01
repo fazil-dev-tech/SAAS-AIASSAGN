@@ -126,46 +126,58 @@ const NetworkLines = () => {
 
 export default function Scene3D() {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   if (!mounted) return null; // Prevent SSR hydration mismatch
 
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 50%, #17072b 0%, #050209 100%)' }}>
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={[1, 2]}>
+      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={isMobile ? 1 : [1, 2]}>
         <ambientLight intensity={0.2} />
         <pointLight position={[10, 10, 10]} intensity={1.5} color="#ec4899" />
         <pointLight position={[-10, -10, -10]} intensity={1} color="#3b82f6" />
         
         <NeuralCore />
-        <NetworkLines />
+        {!isMobile && <NetworkLines />}
         
         {/* Cinematic Particles */}
-        <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
-        <Sparkles count={300} scale={15} size={4} speed={0.4} opacity={0.4} color="#fbcfe8" noise={1} />
-        <Sparkles count={150} scale={20} size={6} speed={0.6} opacity={0.2} color="#8b5cf6" noise={2} />
+        <Stars radius={100} depth={50} count={isMobile ? 500 : 2000} factor={4} saturation={0} fade speed={1} />
+        <Sparkles count={isMobile ? 100 : 300} scale={15} size={4} speed={0.4} opacity={0.4} color="#fbcfe8" noise={1} />
+        {!isMobile && <Sparkles count={150} scale={20} size={6} speed={0.6} opacity={0.2} color="#8b5cf6" noise={2} />}
         
         {/* Infinite Grid for extreme depth scale */}
-        <Grid 
-          position={[0, -4, 0]} 
-          args={[20, 20]} 
-          cellSize={1} 
-          cellThickness={0.5} 
-          cellColor="#db2777" 
-          sectionSize={4} 
-          sectionThickness={1} 
-          sectionColor="#ec4899" 
-          fadeDistance={25} 
-          fadeStrength={1} 
-        />
+        {!isMobile && (
+          <Grid 
+            position={[0, -4, 0]} 
+            args={[20, 20]} 
+            cellSize={1} 
+            cellThickness={0.5} 
+            cellColor="#db2777" 
+            sectionSize={4} 
+            sectionThickness={1} 
+            sectionColor="#ec4899" 
+            fadeDistance={25} 
+            fadeStrength={1} 
+          />
+        )}
         
         <Rig />
 
-        <EffectComposer disableNormalPass>
-          <Bloom luminanceThreshold={0.1} mipmapBlur intensity={1.5} />
-          <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={[0.001, 0.001]} />
-          <Vignette eskil={false} offset={0.1} darkness={1.1} />
-        </EffectComposer>
+        {!isMobile && (
+          <EffectComposer disableNormalPass>
+            <Bloom luminanceThreshold={0.1} mipmapBlur intensity={1.5} />
+            <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={[0.001, 0.001]} />
+            <Vignette eskil={false} offset={0.1} darkness={1.1} />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   );
