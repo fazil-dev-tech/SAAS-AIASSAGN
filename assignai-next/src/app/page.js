@@ -838,6 +838,10 @@ CRITICAL RULES:
   /* ══════════════════════════════════════════════════════════════
      RENDER
      ══════════════════════════════════════════════════════════════ */
+  if (!isMounted) {
+    return <div style={{ minHeight: '100vh', backgroundColor: '#030106' }}></div>;
+  }
+
   return (
     <>
     <AnimatePresence mode="wait">
