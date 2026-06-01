@@ -58,6 +58,11 @@ export default function Home() {
   const [savedReports, setSavedReports] = useState([]);
   const [stats, setStats] = useState({ reports: 0, words: 0, emails: 0 });
 
+  // Dynamic import for the 3D Transition Scene
+  const TransitionScene = useMemo(() => {
+    return require('next/dynamic').default(() => import('../components/landing/Scene3D'), { ssr: false });
+  }, []);
+
   const [authEmail, setAuthEmail] = useState('');
   const [authOtp, setAuthOtp] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -128,8 +133,12 @@ export default function Home() {
       if (res.ok) {
         setUser(data.user);
         localStorage.setItem('assignai_user', JSON.stringify(data.user));
-        setView('dashboard');
+        
+        // Transition Animation
+        setView('transition');
         toast('Logged in successfully!', 'success');
+        setTimeout(() => setView('dashboard'), 2500);
+
       } else {
         toast(data.error || 'Invalid OTP', 'error');
       }
@@ -144,8 +153,12 @@ export default function Home() {
       const adminUser = { email: 'mohamedfazilpasha156@gmail.com', id: 'admin-super' };
       setUser(adminUser);
       localStorage.setItem('assignai_user', JSON.stringify(adminUser));
-      setView('dashboard');
+      
+      // Transition Animation
+      setView('transition');
       toast('Admin logged in successfully!', 'success');
+      setTimeout(() => setView('dashboard'), 2500);
+      
     } else {
       toast('Invalid Admin Credentials', 'error');
     }
@@ -724,9 +737,19 @@ CRITICAL RULES:
       pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.question-label', 'p', 'tr', 'td'] }
     };
     
+    // Force desktop viewport to completely prevent mobile browsers from squashing the PDF
+    const viewportMeta = document.querySelector("meta[name=viewport]");
+    const originalViewport = viewportMeta ? viewportMeta.getAttribute("content") : "";
+    if (viewportMeta) {
+      viewportMeta.setAttribute("content", "width=1024, initial-scale=1");
+    }
+
     // Force layout recalculation
     window.scrollTo(0,0);
     
+    // Give browser a tick to apply the new viewport
+    await new Promise(r => setTimeout(r, 100));
+
     const worker = window.html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf) => {
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
@@ -749,9 +772,20 @@ CRITICAL RULES:
       }
     });
 
-    if (returnBlob) {
-      const blob = await worker.outputPdf('blob');
-      pdfBlobRef.current = blob;
+    try {
+      if (returnBlob) {
+        const blob = await worker.outputPdf('blob');
+        pdfBlobRef.current = blob;
+        return blob;
+      } else {
+        await worker.save();
+        toast('PDF downloaded!', 'success');
+      }
+    } catch (e) {
+      console.error(e);
+      toast('PDF generation failed', 'error');
+    } finally {
+      // Restore layout and viewport
       el.classList.remove('pdf-export-mode');
       el.style.width = oldWidth;
       el.style.maxWidth = oldMaxWidth;
@@ -760,18 +794,10 @@ CRITICAL RULES:
         container.style.overflowX = oldOverflow;
         container.style.overflow = '';
       }
-      return blob;
+      if (viewportMeta && originalViewport) {
+        viewportMeta.setAttribute("content", originalViewport);
+      }
     }
-    await worker.save();
-    el.classList.remove('pdf-export-mode');
-    el.style.width = oldWidth;
-    el.style.maxWidth = oldMaxWidth;
-    el.style.transform = oldTransform;
-    if (container) {
-      container.style.overflowX = oldOverflow;
-      container.style.overflow = '';
-    }
-    toast('PDF downloaded!', 'success');
   };
 
   /* ── EXPORT: DOCX ── */

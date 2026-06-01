@@ -379,6 +379,15 @@ select.form-control option { background: #ffffff; color: #000000; }
   height: auto !important;
 }
 
+/* IMPORTANT: Prevent mobile media queries from shrinking the A4 canvas during export */
+.pdf-export-mode.a4-container,
+.pdf-export-mode .a4-container {
+  transform: none !important;
+  width: 210mm !important;
+  max-width: 210mm !important;
+  margin: 0 !important;
+}
+
 /* --- EVALUATION SHEET --- */
 .eval-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 15mm 0; }
 .eval-header-table {
