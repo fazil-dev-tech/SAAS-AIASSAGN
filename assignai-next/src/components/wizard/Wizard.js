@@ -43,13 +43,15 @@ export default function Wizard({ user, onComplete }) {
         const response = await puter.ai.chat(prompt);
         
         let imageHtml = '';
-        if (q.text.toLowerCase().includes('diagram') || q.text.toLowerCase().includes('architecture')) {
-            try {
-               const imgUrl = await puter.ai.txt2img(`Academic diagram illustrating: ${q.text} in context of ${formData.subject}`);
-               imageHtml = `<br/><img src="${imgUrl}" alt="Generated Diagram" style="max-width:100%; border:1px solid #ccc; margin-top:1rem;"/>`;
-            } catch(e) {
-               console.log("Image gen failed", e);
-            }
+        const needsDiagram = q.text.toLowerCase().includes('diagram') || q.text.toLowerCase().includes('architecture');
+        if (needsDiagram && formData.includeImages && window.puter?.ai?.txt2img) {
+          try {
+            const imgEl = await window.puter.ai.txt2img(`Academic diagram illustrating: ${q.text} in context of ${formData.subject}`);
+            const imgSrc = (imgEl instanceof HTMLElement) ? imgEl.src : (imgEl.src || imgEl);
+            imageHtml = `<br/><br/><div style="text-align: center;"><img src="${imgSrc}" alt="Generated Diagram" style="max-width:100%; max-height:400px; border:1px solid #ccc; margin-top:1rem; border-radius: 8px;"/></div><br/>`;
+          } catch (e) {
+            console.error("Image generation failed:", e);
+          }
         }
 
         generatedAnswers.push({

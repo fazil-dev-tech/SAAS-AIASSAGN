@@ -6,7 +6,13 @@ export default function PreviewEngine({ report }) {
   const [isExporting, setIsExporting] = useState(false);
   const [emailTo, setEmailTo] = useState('');
 
+  const triggerScanner = () => {
+    // Trigger custom event that page.js can listen to
+    window.dispatchEvent(new CustomEvent('showScannerModal'));
+  };
+
   const handleDocxExport = async () => {
+    triggerScanner();
     setIsExporting(true);
     try {
       const res = await fetch('/api/export/docx', {

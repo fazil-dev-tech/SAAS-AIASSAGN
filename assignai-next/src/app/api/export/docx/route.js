@@ -240,13 +240,14 @@ export async function POST(request) {
                 blocks.push(
                   new Paragraph({
                     children: [
-                      new TextRun({ text: a.text, size: 24, font: 'Times New Roman' })
+                      new TextRun({ text: `Q${a.num ? a.num + '. ' : ''}${a.text}`, size: 24, font: 'Times New Roman', bold: true })
                     ],
                     spacing: { before: 200, after: 200 },
-                    alignment: AlignmentType.JUSTIFIED
+                    alignment: AlignmentType.JUSTIFIED,
+                    pageBreakBefore: idx > 0 && a.unit === lastUnit
                   }),
                   new Paragraph({
-                    children: [new TextRun({ text: "Solution:", bold: true, size: 24, underline: {}, font: 'Times New Roman' })],
+                    children: [new TextRun({ text: "Solution:", bold: true, size: 24, font: 'Times New Roman' })],
                     spacing: { after: 120 },
                   }),
                   ...htmlToDocxParagraphs(a.answerHTML)
@@ -262,7 +263,7 @@ export async function POST(request) {
 
     const buffer = await Packer.toBuffer(doc);
 
-    return new NextResponse(buffer, {
+    return new Response(buffer, {
       status: 200,
       headers: {
         'Content-Disposition': `attachment; filename="Report_${reportData.subject || 'Assignment'}.docx"`,

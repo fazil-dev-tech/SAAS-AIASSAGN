@@ -5,6 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { motion, AnimatePresence } from 'framer-motion';
+import LandingPage from '../components/landing/LandingPage';
+import GuideBot from '../components/GuideBot';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -50,7 +52,7 @@ const extractImageBase64 = async (imgResult) => {
 
 export default function Home() {
   const [user, setUser] = useState(null);
-  const [view, setView] = useState('auth');
+  const [view, setView] = useState('landing');
   const [theme, setTheme] = useState('dark');
   const [toasts, setToasts] = useState([]);
   const [savedReports, setSavedReports] = useState([]);
@@ -64,6 +66,11 @@ export default function Home() {
   const [loginType, setLoginType] = useState('student');
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   /* ── THEME ── */
   const toggleTheme = () => {
@@ -688,19 +695,28 @@ CRITICAL RULES:
       await new Promise(r => s.onload = r);
     }
     const el = document.getElementById('report-preview-content');
+    const container = el.closest('.report-page-container');
+    const oldOverflow = container ? container.style.overflowX : '';
     
     // Switch to export mode: hides HTML headers/footers and removes CSS padding
     // so we can rely purely on html2pdf's native margins and pagination.
     el.classList.add('pdf-export-mode');
+    if (container) {
+      container.style.overflowX = 'visible';
+      container.style.overflow = 'visible';
+    }
 
     const opt = { 
       margin: [25, 0, 25, 0],  // Top and Bottom margins only! (Left/Right handled by CSS padding)
       filename: `Report_${form.subject}.pdf`, 
       image: { type: 'jpeg', quality: 0.98 }, 
-      html2canvas: { scale: 2, useCORS: true, scrollY: 0, letterRendering: true }, 
+      html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: document.documentElement.offsetWidth, letterRendering: true }, 
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.question-label', 'p', 'tr', 'td'] }
     };
+    
+    // Force layout recalculation
+    window.scrollTo(0,0);
     
     const worker = window.html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf) => {
       const totalPages = pdf.internal.getNumberOfPages();
@@ -728,10 +744,18 @@ CRITICAL RULES:
       const blob = await worker.outputPdf('blob');
       pdfBlobRef.current = blob;
       el.classList.remove('pdf-export-mode');
+      if (container) {
+        container.style.overflowX = oldOverflow;
+        container.style.overflow = '';
+      }
       return blob;
     }
     await worker.save();
     el.classList.remove('pdf-export-mode');
+    if (container) {
+      container.style.overflowX = oldOverflow;
+      container.style.overflow = '';
+    }
     toast('PDF downloaded!', 'success');
   };
 
@@ -789,7 +813,15 @@ CRITICAL RULES:
       }
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    
+    // Scanner Modal Listener
+    const handleScanner = () => setShowScannerModal(true);
+    window.addEventListener('showScannerModal', handleScanner);
+
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('showScannerModal', handleScanner);
+    };
   }, [view, wizStep]);
 
   /* ══════════════════════════════════════════════════════════════
@@ -797,6 +829,13 @@ CRITICAL RULES:
      ══════════════════════════════════════════════════════════════ */
   return (
     <>
+    <AnimatePresence mode="wait">
+      {view === 'landing' ? (
+        <motion.div key="landing-view" initial={{ opacity: 0, filter: 'blur(20px)', scale: 1.05 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} exit={{ opacity: 0, filter: 'blur(20px)', scale: 0.95 }} transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }} style={{ position: 'absolute', width: '100%', left: 0, top: 0, zIndex: 100, backgroundColor: '#030106', minHeight: '100vh' }}>
+          <LandingPage onStart={() => setView('auth')} />
+        </motion.div>
+      ) : (
+        <motion.div key="app-view" initial={{ opacity: 0, filter: 'blur(10px)', y: 20 }} animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }} exit={{ opacity: 0, filter: 'blur(10px)', y: -20 }} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }} style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       {/* ── TOPBAR ── */}
       <header className="topbar">
         <div className="brand" onClick={() => user ? setView('dashboard') : null} style={{ cursor: 'pointer' }}>
@@ -1577,41 +1616,50 @@ CRITICAL RULES:
         )}
         </AnimatePresence>
       </div>
-
-      {/* ── TOASTS ── */}
-      <div className="toast-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`toast ${t.type}`}>
-            <span>{t.type === 'success' ? '✅' : t.type === 'error' ? '❌' : 'ℹ️'}</span>
-            <span>{t.msg}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* SCANNER MODAL OVERLAY */}
-      {showScannerModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(5px)' }}>
-          <div className="glass-card" style={{ padding: '3rem 2rem', maxWidth: '400px', width: '90%', textAlign: 'center', position: 'relative', border: '1px solid var(--accent)', boxShadow: '0 0 40px rgba(99, 102, 241, 0.2)' }}>
-            <button onClick={() => setShowScannerModal(false)} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--accent)', fontSize: '1.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>☕ Support the Developer</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: 1.5 }}>
-              Developed by <strong style={{ color: 'var(--text-primary)' }}>MOHAMED FAZIL PASHA</strong>.<br/>
-              If AssignAI has saved your valuable time, please consider buying me a coffee to support continuous platform improvements!
-            </p>
-            <div style={{ background: '#fff', padding: '15px', borderRadius: '16px', display: 'inline-block', marginBottom: '1.5rem', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-              <img src="/scanner.jpg" alt="Payment Scanner" style={{ width: '220px', height: '220px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
-              <div style={{ display: 'none', color: '#666', fontSize: '0.8rem', textAlign: 'center', padding: '2rem 1rem' }}>Please add your QR code as public/scanner.jpg</div>
-            </div>
-            <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)' }}>
-              For any technical support or enterprise solutions, please contact:<br/>
-              <strong style={{ color: 'var(--text-primary)', fontSize: '1.2rem', display: 'block', marginTop: '0.5rem' }}>📞 +91 7019145837</strong>
-            </div>
-            <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: 'var(--accent)', fontStyle: 'italic' }}>
-              Your file is downloading securely in the background...
-            </p>
-          </div>
-        </div>
+      </motion.div>
       )}
+    </AnimatePresence>
+
+    {/* ── TOASTS ── */}
+    <div className="toast-container">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.type}`}>
+          <span>{t.type === 'success' ? '✅' : t.type === 'error' ? '❌' : 'ℹ️'}</span>
+          <span>{t.msg}</span>
+        </div>
+      ))}
+    </div>
+    {/* SCANNER MODAL OVERLAY */}
+    {showScannerModal && (
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999, backdropFilter: 'blur(5px)' }}>
+        <div className="glass-card" style={{ padding: '3rem 2rem', maxWidth: '400px', width: '90%', textAlign: 'center', position: 'relative', border: '1px solid var(--accent)', boxShadow: '0 0 40px rgba(99, 102, 241, 0.2)' }}>
+          <button onClick={() => setShowScannerModal(false)} style={{ position: 'absolute', top: '1rem', right: '1.5rem', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '2rem', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
+          <h3 style={{ marginBottom: '1rem', color: 'var(--accent)', fontSize: '1.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>☕ Support the Developer</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: 1.5 }}>
+            Developed by <strong style={{ color: 'var(--text-primary)' }}>MOHAMED FAZIL PASHA</strong>.<br/>
+            If AssignAI has saved your valuable time, please consider buying me a coffee to support continuous platform improvements!
+          </p>
+          <div style={{ background: '#fff', padding: '15px', borderRadius: '16px', display: 'inline-block', marginBottom: '1.5rem', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+            <img src="/scanner.jpg" alt="Payment Scanner" style={{ width: '220px', height: '220px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
+            <div style={{ display: 'none', color: '#666', fontSize: '0.8rem', textAlign: 'center', padding: '2rem 1rem' }}>Please add your QR code as public/scanner.jpg</div>
+          </div>
+          <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)' }}>
+            For any technical support or enterprise solutions, please contact:<br/>
+            <strong style={{ color: 'var(--text-primary)', fontSize: '1.2rem', display: 'block', marginTop: '0.5rem' }}>📞 +91 7019145837</strong>
+          </div>
+          <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: 'var(--accent)', fontStyle: 'italic' }}>
+            Your file is downloading securely in the background...
+          </p>
+        </div>
+      </div>
+    )}
+    
+    {isMounted && (
+      <GuideBot 
+        onNavigate={(v) => setView(v)} 
+        onScanner={() => setShowScannerModal(true)} 
+      />
+    )}
     </>
   );
 }
