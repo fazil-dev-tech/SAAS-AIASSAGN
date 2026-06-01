@@ -99,7 +99,7 @@ export default function GuideBot({ onNavigate, onScanner }) {
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 99999 }}>
+    <div style={{ position: 'fixed', bottom: '30px', left: '30px', zIndex: 99999 }}>
       <AnimatePresence>
         {isOpen && (
           <motion.div 
@@ -110,8 +110,9 @@ export default function GuideBot({ onNavigate, onScanner }) {
             style={{ 
               position: 'absolute', 
               bottom: '80px', 
-              right: 0, 
-              width: '380px', 
+              left: 0, 
+              width: 'calc(100vw - 60px)', 
+              maxWidth: '380px',
               height: '550px',
               background: 'rgba(10, 10, 10, 0.8)',
               backdropFilter: 'blur(20px)',

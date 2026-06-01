@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -12,15 +12,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const sb = supabaseUrl ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
-/* ── Puter.js loader (properly via CDN for browser, avoids SSR issues with NPM) ── */
-function loadPuter() {
-  return new Promise((resolve) => {
-    if (typeof window !== 'undefined' && window.puter) { resolve(window.puter); return; }
-    const script = document.createElement('script');
-    script.src = 'https://js.puter.com/v2/';
-    script.onload = () => resolve(window.puter);
-    document.head.appendChild(script);
-  });
+/* ── Puter.js loader (now using NPM package) ── */
+async function loadPuter() {
+  if (typeof window !== 'undefined' && window.puter) { return window.puter; }
+  const puterModule = await import('@heyputer/puter.js');
+  window.puter = puterModule.default || puterModule;
+  return window.puter;
 }
 
 const extractImageBase64 = async (imgResult) => {
@@ -52,7 +49,18 @@ const extractImageBase64 = async (imgResult) => {
 
 export default function Home() {
   const [user, setUser] = useState(null);
-  const [view, setView] = useState('landing');
+  const [view, setView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('assignai_view') || 'landing';
+    }
+    return 'landing';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('assignai_view', view);
+    }
+  }, [view]);
   const [theme, setTheme] = useState('dark');
   const [toasts, setToasts] = useState([]);
   const [savedReports, setSavedReports] = useState([]);
@@ -76,8 +84,16 @@ export default function Home() {
 
   useEffect(() => {
     setIsMounted(true);
-    const splashTimer = setTimeout(() => setIsSplashActive(false), 6000);
-    return () => clearTimeout(splashTimer);
+    const hasSeenSplash = sessionStorage.getItem('assignai_has_seen_splash');
+    if (!hasSeenSplash) {
+      const splashTimer = setTimeout(() => {
+        setIsSplashActive(false);
+        sessionStorage.setItem('assignai_has_seen_splash', 'true');
+      }, 6000);
+      return () => clearTimeout(splashTimer);
+    } else {
+      setIsSplashActive(false);
+    }
   }, []);
 
   /* ── THEME ── */
@@ -95,13 +111,49 @@ export default function Home() {
   }, []);
 
   /* ── AUTH ── */
+
   useEffect(() => {
     const savedUser = localStorage.getItem('assignai_user');
-    if (savedUser) {
+    const loginTime = localStorage.getItem('assignai_user_login_time');
+    
+    if (savedUser && loginTime) {
+      const isExpired = Date.now() - parseInt(loginTime, 10) > 60 * 60 * 1000; // 1 hour
+      if (isExpired) {
+        localStorage.removeItem('assignai_user');
+        localStorage.removeItem('assignai_user_login_time');
+        setUser(null);
+        setView('auth');
+        toast('Session expired. Please login again.', 'error');
+      } else {
+        setUser(JSON.parse(savedUser));
+      }
+    } else if (savedUser) {
+      // Legacy user without login time
       setUser(JSON.parse(savedUser));
-      // Stay on landing page by default
+      localStorage.setItem('assignai_user_login_time', Date.now().toString());
     }
   }, []);
+
+  // Periodic check for session expiration
+  useEffect(() => {
+    let interval;
+    if (user) {
+      interval = setInterval(() => {
+        const loginTime = localStorage.getItem('assignai_user_login_time');
+        if (loginTime) {
+          const isExpired = Date.now() - parseInt(loginTime, 10) > 60 * 60 * 1000;
+          if (isExpired) {
+            localStorage.removeItem('assignai_user');
+            localStorage.removeItem('assignai_user_login_time');
+            setUser(null);
+            setView('auth');
+            toast('Session expired. Please login again.', 'error');
+          }
+        }
+      }, 60000); // Check every minute
+    }
+    return () => clearInterval(interval);
+  }, [user]);
 
   const requestOtp = async () => {
     if (!authEmail.includes('@')) { toast('Enter a valid email address', 'error'); return; }
@@ -136,6 +188,7 @@ export default function Home() {
       if (res.ok) {
         setUser(data.user);
         localStorage.setItem('assignai_user', JSON.stringify(data.user));
+        localStorage.setItem('assignai_user_login_time', Date.now().toString());
         
         // Transition Animation
         setView('transition');
@@ -156,6 +209,7 @@ export default function Home() {
       const adminUser = { email: 'mohamedfazilpasha156@gmail.com', id: 'admin-super' };
       setUser(adminUser);
       localStorage.setItem('assignai_user', JSON.stringify(adminUser));
+      localStorage.setItem('assignai_user_login_time', Date.now().toString());
       
       // Transition Animation
       setView('transition');
@@ -169,6 +223,7 @@ export default function Home() {
 
   const signOut = () => {
     localStorage.removeItem('assignai_user');
+    localStorage.removeItem('assignai_user_login_time');
     setUser(null);
     setView('landing');
     setOtpSent(false);
@@ -451,13 +506,11 @@ ${rawText.substring(0, 8000)}`;
         try {
           if (!window.pdfjsLib) {
             toast('Loading PDF Engine...', 'info');
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            document.head.appendChild(script);
-            await new Promise(r => script.onload = r);
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            const pdfjsLib = await import('pdfjs-dist');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+            window.pdfjsLib = pdfjsLib;
           }
-          const pdf = await window.pdfjsLib.getDocument(new Uint8Array(ev.target.result)).promise;
+          const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise;
           let extractedLines = [];
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
@@ -490,10 +543,7 @@ ${rawText.substring(0, 8000)}`;
           if (rawText.length < 50) { // Likely Scanned PDF
             toast('Running AI Vision OCR on scanned PDF...', 'info');
             if (!window.Tesseract) {
-              const script = document.createElement('script');
-              script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js';
-              document.head.appendChild(script);
-              await new Promise(r => script.onload = r);
+              window.Tesseract = await import('tesseract.js');
             }
             rawText = '';
             for (let i = 1; i <= pdf.numPages; i++) {
@@ -525,10 +575,7 @@ ${rawText.substring(0, 8000)}`;
       toast('Running AI Vision OCR on image...', 'info');
       try {
         if (!window.Tesseract) {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js';
-          document.head.appendChild(script);
-          await new Promise(r => script.onload = r);
+          window.Tesseract = await import('tesseract.js');
         }
         const result = await window.Tesseract.recognize(file, 'eng');
         const success = await parseQuestionsWithAI(result.data.text);
@@ -705,10 +752,8 @@ CRITICAL RULES:
   const pdfBlobRef = useRef(null);
   const exportPdf = async (returnBlob = false) => {
     if (!window.html2pdf) {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      document.head.appendChild(s);
-      await new Promise(r => s.onload = r);
+      const html2pdfModule = await import('html2pdf.js');
+      window.html2pdf = html2pdfModule.default || html2pdfModule;
     }
     const el = document.getElementById('report-preview-content');
     const container = el.closest('.report-page-container');
@@ -717,6 +762,7 @@ CRITICAL RULES:
     // Switch to export mode: hides HTML headers/footers and removes CSS padding
     // so we can rely purely on html2pdf's native margins and pagination.
     el.classList.add('pdf-export-mode');
+    document.body.classList.add('exporting-pdf');
     
     // Force desktop width so mobile doesn't shrink/scatter the PDF
     const oldWidth = el.style.width;
@@ -790,6 +836,7 @@ CRITICAL RULES:
     } finally {
       // Restore layout and viewport
       el.classList.remove('pdf-export-mode');
+      document.body.classList.remove('exporting-pdf');
       el.style.width = oldWidth;
       el.style.maxWidth = oldMaxWidth;
       el.style.transform = oldTransform;
@@ -877,6 +924,7 @@ CRITICAL RULES:
 
   return (
     <>
+
       {/* ══════════════════════════════════════════
           INITIAL LOAD SPLASH SCREEN (6 Seconds)
           ══════════════════════════════════════════ */}
@@ -1287,75 +1335,74 @@ CRITICAL RULES:
             {wizStep === 3 && (
               <div className="loader-container" style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 
-                <div className="glass-card" style={{ padding: '3rem', width: '100%', maxWidth: '650px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                <div className="glass-card" style={{ padding: '3rem', width: '100%', maxWidth: '650px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden', background: 'rgba(10,10,10,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', backdropFilter: 'blur(20px)' }}>
                   
-                  {/* Glowing background orb for effect */}
-                  <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '200px', height: '100px', background: 'var(--accent-glow)', filter: 'blur(60px)', opacity: 0.5, zIndex: 0 }} />
+                  {/* Subtle white glow for effect */}
+                  <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '200px', height: '100px', background: '#ffffff', filter: 'blur(80px)', opacity: 0.1, zIndex: 0 }} />
 
                   <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     
-                    {generating && <div className="spinner" style={{ width: '60px', height: '60px', borderWidth: '4px', marginBottom: '1.5rem' }} />}
-                    {!generating && genProgress === 100 && <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'slideIn 0.5s ease-out' }}>🎉</div>}
+                    {generating && <div style={{ width: '40px', height: '40px', borderWidth: '3px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.1)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '1.5rem' }} />}
+                    {!generating && genProgress === 100 && <div style={{ fontSize: '3rem', marginBottom: '1rem', animation: 'slideIn 0.5s ease-out' }}>✔</div>}
                     
-                    <h2 style={{ fontSize: '2.2rem', marginBottom: '0.5rem', textAlign: 'center', fontWeight: '800', background: 'linear-gradient(to right, #fff, #e2e8f0)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                      {generating ? 'Generating Your Report...' : 'Generation Complete!'}
+                    <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', textAlign: 'center', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em' }}>
+                      {generating ? 'Compiling Report' : 'Compilation Complete'}
                     </h2>
                     
-                    <p style={{ color: 'var(--text-secondary)', marginBottom: '2.5rem', fontSize: '1.1rem', textAlign: 'center' }}>
-                      {generating ? 'Puter AI is crafting detailed, academically rigorous answers.' : 'Your professional academic report is fully compiled and ready.'}
+                    <p style={{ color: '#888', marginBottom: '2.5rem', fontSize: '1rem', textAlign: 'center' }}>
+                      {generating ? 'The engine is synthesizing and formatting your academic document.' : 'Your professional academic report is fully compiled and ready.'}
                     </p>
 
                     {/* Developer Support Card */}
                     {generating && (
-                      <div className="support-card" style={{ 
-                          width: '100%', padding: '1.5rem', marginBottom: '2.5rem', borderRadius: 'var(--radius-lg)', 
-                          background: 'linear-gradient(145deg, rgba(30,10,45,0.8), rgba(15,5,25,0.9))',
-                          border: '1px solid rgba(236,72,153,0.3)', boxShadow: '0 10px 30px -10px rgba(236,72,153,0.2)',
-                          display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'all 0.3s ease' 
+                      <div style={{ 
+                          width: '100%', padding: '1.5rem', marginBottom: '2.5rem', borderRadius: '16px', 
+                          background: 'rgba(0,0,0,0.5)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'all 0.3s ease' 
                         }} 
                         onClick={() => setShowScannerModal(true)}
-                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 10px 30px -5px rgba(236,72,153,0.4)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(236,72,153,0.3)'; e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(236,72,153,0.2)'; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                       >
-                        <div style={{ fontSize: '3rem', filter: 'drop-shadow(0 0 10px rgba(252,211,77,0.5))' }}>☕</div>
-                        <div style={{ flex: 1 }}>
-                          <h4 style={{ color: 'var(--gold)', marginBottom: '0.25rem', fontSize: '1.1rem', fontWeight: '700' }}>Support the Developer</h4>
-                          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>While you wait, consider buying Mohamed Fazil Pasha a coffee to keep this powerful tool alive!</p>
+                        <div style={{ fontSize: '2.5rem' }}>☕</div>
+                        <div style={{ flex: '1 1 200px' }}>
+                          <h4 style={{ color: '#fff', marginBottom: '0.25rem', fontSize: '1.1rem', fontWeight: '700', letterSpacing: '-0.01em' }}>Support the Developer</h4>
+                          <p style={{ fontSize: '0.9rem', color: '#888', lineHeight: 1.4 }}>While you wait, consider buying Mohamed Fazil Pasha a coffee to keep this powerful tool alive!</p>
                         </div>
-                        <button className="btn btn-secondary btn-sm" style={{ whiteSpace: 'nowrap', padding: '0.5rem 1.25rem', background: 'rgba(236,72,153,0.1)', borderColor: 'var(--accent)', color: 'var(--accent)' }}>View Scanner</button>
+                        <button style={{ padding: '0.6rem 1.2rem', borderRadius: '100px', background: '#fff', color: '#000', border: 'none', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', flexShrink: 0 }}>View Scanner</button>
                       </div>
                     )}
 
                     {/* Progress Area */}
                     <div style={{ width: '100%', marginBottom: '2rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                        <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                          {generating ? 'Progress' : 'Done'}
+                        <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                          {generating ? 'Processing' : 'Done'}
                         </span>
-                        <span className="mono" style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--accent)' }}>{genProgress}%</span>
+                        <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#fff' }}>{genProgress}%</span>
                       </div>
-                      <div className="progress-bar" style={{ height: '12px', background: 'rgba(0,0,0,0.5)', borderRadius: '100px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div className="progress-fill" style={{ width: `${genProgress}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent), var(--accent2))', borderRadius: '100px', boxShadow: '0 0 15px var(--accent-glow)', transition: 'width 0.3s ease' }} />
+                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '100px', overflow: 'hidden' }}>
+                        <div style={{ width: `${genProgress}%`, height: '100%', background: '#fff', borderRadius: '100px', boxShadow: '0 0 10px rgba(255,255,255,0.5)', transition: 'width 0.3s ease' }} />
                       </div>
                     </div>
 
                     {/* Log Terminal */}
-                    <div className="log-box" style={{ 
-                      width: '100%', background: '#0a0a0a', border: '1px solid #27272a', borderRadius: 'var(--radius-md)', 
-                      padding: '1.25rem', height: '180px', overflowY: 'auto', textAlign: 'left', 
-                      fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: '#a1a1aa',
-                      boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5)'
+                    <div style={{ 
+                      width: '100%', background: '#000000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', 
+                      padding: '1.25rem', height: '200px', overflowY: 'auto', textAlign: 'left', 
+                      fontFamily: 'monospace', fontSize: '0.85rem', color: '#888'
                     }}>
                       <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }} />
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#333' }} />
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#444' }} />
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#555' }} />
                       </div>
                       {genLogs.map((log, i) => (
-                        <div key={i} className={`log-line ${log.status}`} style={{ marginBottom: '6px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                          <span style={{ opacity: 0.5 }}>[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
+                        <div key={i} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start', gap: '8px', lineHeight: 1.4 }}>
+                          <span style={{ opacity: 0.3 }}>[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
                           <span style={{ 
-                            color: log.status === 'error' ? '#ef4444' : log.status === 'done' ? '#10b981' : '#60a5fa',
+                            color: log.status === 'error' ? '#ef4444' : log.status === 'done' ? '#fff' : '#888',
                             fontWeight: log.status === 'active' ? 'bold' : 'normal'
                           }}>{log.text}</span>
                         </div>

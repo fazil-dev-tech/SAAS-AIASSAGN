@@ -621,8 +621,8 @@ select.form-control option { background: #ffffff; color: #000000; }
   }
 
   /* A4 scaling on tablet */
-  .report-page-container { padding: 0.5rem !important; }
-  .a4-container {
+  body:not(.exporting-pdf) .report-page-container { padding: 0.5rem !important; }
+  body:not(.exporting-pdf) .a4-container {
     transform-origin: top center;
     transform: scale(0.55);
     width: 210mm;
@@ -640,7 +640,7 @@ select.form-control option { background: #ffffff; color: #000000; }
   .preview-actions { grid-template-columns: 1fr; }
 
   /* A4 scaling on small phone */
-  .a4-container {
+  body:not(.exporting-pdf) .a4-container {
     transform: scale(0.38);
     margin-bottom: -60%;
   }

@@ -1,150 +1,337 @@
 "use client";
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Float, Environment, Stars, Sparkles, Line, Grid } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette, ChromaticAberration } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+import { Float, Environment, Stars, Line, Sphere, Html } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette, Noise } from '@react-three/postprocessing';
 import * as THREE from 'three';
 
-// Mouse tracking for parallax
-function Rig({ isMobile }) {
-  const { camera, mouse } = useThree();
-  const vec = new THREE.Vector3();
+// ── GLOBAL SCROLL TRACKER ──
+// We track scroll manually so the 3D camera can react to the standard HTML scrollbar without hijacking it.
+const useScrollPos = () => {
+  const [scroll, setScroll] = useState(0);
+  useEffect(() => {
+    const handleScroll = () => {
+      // Normalize scroll between 0 and 1 based on body height vs window height
+      const h = document.documentElement;
+      const b = document.body;
+      const st = 'scrollTop';
+      const sh = 'scrollHeight';
+      const percent = (h[st] || b[st]) / ((h[sh] || b[sh]) - h.clientHeight);
+      setScroll(percent || 0);
+    };
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+  return scroll;
+};
 
-  return useFrame((state) => {
-    if (isMobile) {
-      // Smooth automatic pan for mobile instead of erratic touch jumps
-      camera.position.lerp(vec.set(Math.sin(state.clock.elapsedTime * 0.2) * 1.5, Math.cos(state.clock.elapsedTime * 0.2) * 1.5, 12), 0.02);
-    } else {
-      camera.position.lerp(vec.set(mouse.x * 2.5, mouse.y * 2.5, 10), 0.05);
-    }
-    camera.lookAt(0, 0, 0);
-  });
-}
+// ── PREMIUM GLASS MATERIAL ──
+const getPremiumGlass = () => new THREE.MeshPhysicalMaterial({
+  color: "#ffffff",
+  metalness: 0.9,
+  roughness: 0.1,
+  transmission: 1.0, // glass effect
+  ior: 1.5,
+  thickness: 2.0,
+  transparent: true,
+  opacity: 1,
+  side: THREE.DoubleSide
+});
 
-// Sophisticated abstract wireframe core
-const NeuralCore = ({ isMobile }) => {
-  const coreRef = useRef();
-  const outerRef = useRef();
-  
+// ── HERO SCENE (The Core) ──
+const HeroCore = () => {
+  const groupRef = useRef();
+  const ringRef = useRef();
+
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    if (coreRef.current) {
-      coreRef.current.rotation.y = t * 0.15;
-      coreRef.current.rotation.x = t * 0.1;
+    if (groupRef.current) {
+      groupRef.current.rotation.y = t * 0.1;
+      groupRef.current.rotation.x = Math.sin(t * 0.5) * 0.1;
     }
-    if (outerRef.current) {
-      outerRef.current.rotation.y = -t * 0.1;
-      outerRef.current.rotation.z = t * 0.05;
-      
-      // Gentle pulsing effect
-      const scale = 1 + Math.sin(t * 2) * 0.05;
-      outerRef.current.scale.set(scale, scale, scale);
+    if (ringRef.current) {
+      ringRef.current.rotation.x = Math.PI / 2;
+      ringRef.current.rotation.z = -t * 0.05;
     }
   });
 
   return (
-    <group position={[0, isMobile ? -5 : 0, 0]}>
-      <Float speed={1.5} rotationIntensity={0.8} floatIntensity={1.5}>
-        <mesh ref={coreRef} scale={1.8}>
-          <icosahedronGeometry args={[1, 2]} />
-          {isMobile ? (
-            <meshBasicMaterial color="#d946ef" wireframe transparent opacity={0.3} blending={THREE.AdditiveBlending} />
-          ) : (
-            <meshPhysicalMaterial 
-              color="#0a0a0a" emissive="#db2777" emissiveIntensity={0.6}
-              roughness={0.2} metalness={0.8} wireframe transparent opacity={0.3}
-            />
-          )}
-        </mesh>
-        
-        <mesh ref={outerRef} scale={2.5}>
+    <group ref={groupRef} position={[0, 0, 0]}>
+      <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
+        {/* Inner intricate geometry */}
+        <mesh scale={1.5}>
           <icosahedronGeometry args={[1, 1]} />
-          {isMobile ? (
-            <meshBasicMaterial color="#7e22ce" wireframe transparent opacity={0.15} blending={THREE.AdditiveBlending} />
-          ) : (
-            <meshPhysicalMaterial 
-              color="#db2777" emissive="#000000" emissiveIntensity={0}
-              wireframe transparent opacity={0.15} roughness={0.1} metalness={1}
-            />
-          )}
+          <meshPhysicalMaterial color="#ffffff" wireframe transparent opacity={0.15} />
         </mesh>
         
-        {/* Inner solid glowing core */}
-        <mesh scale={0.5}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <meshBasicMaterial color={isMobile ? "#4c1d95" : "#fce7f3"} />
+        {/* Outer Premium Glass Shell */}
+        <mesh scale={1.8} material={getPremiumGlass()}>
+          <icosahedronGeometry args={[1, 0]} />
         </mesh>
 
-        {/* Fake Bloom Glow for mobile */}
-        {isMobile && (
-          <mesh scale={3.5}>
-            <sphereGeometry args={[1, 32, 32]} />
-            <meshBasicMaterial 
-              color="#9d174d" 
-              transparent 
-              opacity={0.1} 
-              blending={THREE.AdditiveBlending} 
-              depthWrite={false}
-            />
-          </mesh>
-        )}
+        {/* Floating Data Ring */}
+        <mesh ref={ringRef} scale={3.5}>
+          <torusGeometry args={[1, 0.005, 16, 100]} />
+          <meshBasicMaterial color="#a855f7" transparent opacity={0.5} />
+        </mesh>
       </Float>
     </group>
   );
 };
 
-// Dynamic connecting lines representing neural/AI network
-const NetworkLines = ({ isMobile }) => {
-  const points = useMemo(() => {
-    const p = [];
-    const count = isMobile ? 15 : 40;
-    for (let i = 0; i < count; i++) {
-      p.push(new THREE.Vector3(
-        (Math.random() - 0.5) * 15,
-        (Math.random() - 0.5) * 15,
-        (Math.random() - 0.5) * 10 - 5
-      ));
+// ── ANIMATED RINGS ──
+const AnimatedRing = ({ color, scale }) => {
+  const ref = useRef();
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (ref.current) {
+      ref.current.rotation.x = Math.PI / 2;
+      ref.current.rotation.z = t * 0.5;
+      const pulse = 1 + Math.sin(t * 3) * 0.05;
+      ref.current.scale.set(scale * pulse, scale * pulse, scale * pulse);
     }
-    return p;
-  }, [isMobile]);
+  });
+  return (
+    <mesh ref={ref}>
+      <torusGeometry args={[1, 0.02, 16, 100]} />
+      <meshBasicMaterial color={color} transparent opacity={0.6} />
+    </mesh>
+  );
+};
 
-  const linesRef = useRef();
+// ── ARCHITECTURE SCENE (The Nodes) ──
+const ArchitectureNodes = ({ isMobile }) => {
+  const nodes = [
+    { pos: [-4, -12, -2], label: "1. Client Input", color: "#3b82f6" },
+    { pos: [0, -10, -5], label: "2. AssignAI Engine", color: "#a855f7" },
+    { pos: [4, -13, 0], label: "3. Formatted Document", color: "#10b981" }
+  ];
+
+  // Adjust for mobile stacking
+  if (isMobile) {
+    nodes[0].pos = [0, -10, 0];
+    nodes[1].pos = [0, -13, -2];
+    nodes[2].pos = [0, -16, 0];
+  }
+
+  const groupRef = useRef();
   
   useFrame((state) => {
-    if (linesRef.current) {
-      linesRef.current.rotation.y = state.clock.elapsedTime * 0.03;
-      linesRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.05) * 0.1;
+    if (groupRef.current) {
+      groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.2;
     }
   });
 
   return (
-    <group ref={linesRef}>
-      {points.map((p1, i) => 
-        points.slice(i + 1, i + 3).map((p2, j) => (
-          <Line
-            key={`${i}-${j}`}
-            points={[p1, p2]}
-            color="#ec4899"
-            opacity={0.15}
-            transparent
-            lineWidth={1.5}
-          />
-        ))
-      )}
-      {points.map((p, i) => (
-        <mesh key={i} position={p}>
-          <sphereGeometry args={[0.06, 8, 8]} />
-          <meshBasicMaterial color="#fbcfe8" transparent opacity={0.6} />
+    <group ref={groupRef}>
+      {/* Node 1 */}
+      <Float speed={1.5} floatIntensity={0.5}>
+        <mesh position={nodes[0].pos} material={getPremiumGlass()}>
+          <boxGeometry args={[1.5, 1.5, 1.5]} />
         </mesh>
-      ))}
+        <Sphere position={nodes[0].pos} args={[0.3, 16, 16]}>
+          <meshBasicMaterial color={nodes[0].color} />
+        </Sphere>
+        <group position={nodes[0].pos}>
+          <AnimatedRing color={nodes[0].color} scale={1.2} />
+          <Html position={[0, 1.5, 0]} center transform sprite zIndexRange={[100, 0]}>
+            <div style={{ background: 'rgba(0,0,0,0.8)', border: `1px solid ${nodes[0].color}`, padding: '4px 12px', borderRadius: '20px', color: '#fff', fontSize: '10px', letterSpacing: '1px', whiteSpace: 'nowrap' }}>
+              {nodes[0].label}
+            </div>
+          </Html>
+        </group>
+      </Float>
+
+      {/* Node 2 */}
+      <Float speed={2} floatIntensity={0.8} rotationIntensity={1}>
+        <mesh position={nodes[1].pos} material={getPremiumGlass()}>
+          <octahedronGeometry args={[2, 0]} />
+        </mesh>
+        <Sphere position={nodes[1].pos} args={[0.5, 16, 16]}>
+          <meshBasicMaterial color={nodes[1].color} />
+        </Sphere>
+        <group position={nodes[1].pos}>
+          <AnimatedRing color={nodes[1].color} scale={1.6} />
+          <AnimatedRing color={nodes[1].color} scale={1.8} />
+          <Html position={[0, 2.2, 0]} center transform sprite zIndexRange={[100, 0]}>
+            <div style={{ background: 'rgba(0,0,0,0.8)', border: `1px solid ${nodes[1].color}`, padding: '4px 12px', borderRadius: '20px', color: '#fff', fontSize: '10px', letterSpacing: '1px', whiteSpace: 'nowrap' }}>
+              {nodes[1].label}
+            </div>
+          </Html>
+        </group>
+      </Float>
+
+      {/* Node 3 */}
+      <Float speed={1.2} floatIntensity={0.4}>
+        <mesh position={nodes[2].pos} material={getPremiumGlass()}>
+          <cylinderGeometry args={[1, 1, 2, 32]} />
+        </mesh>
+        <Sphere position={nodes[2].pos} args={[0.4, 16, 16]}>
+          <meshBasicMaterial color={nodes[2].color} />
+        </Sphere>
+        <group position={nodes[2].pos}>
+          <AnimatedRing color={nodes[2].color} scale={1.2} />
+          <Html position={[0, 1.8, 0]} center transform sprite zIndexRange={[100, 0]}>
+            <div style={{ background: 'rgba(0,0,0,0.8)', border: `1px solid ${nodes[2].color}`, padding: '4px 12px', borderRadius: '20px', color: '#fff', fontSize: '10px', letterSpacing: '1px', whiteSpace: 'nowrap' }}>
+              {nodes[2].label}
+            </div>
+          </Html>
+        </group>
+      </Float>
+
+      {/* Connecting Data Lines */}
+      <Line points={[nodes[0].pos, nodes[1].pos]} color="#ffffff" opacity={0.2} transparent lineWidth={1} dashed dashScale={10} />
+      <Line points={[nodes[1].pos, nodes[2].pos]} color="#ffffff" opacity={0.2} transparent lineWidth={1} dashed dashScale={10} />
+      
+      {/* Moving Data Packets */}
+      <DataPacket start={nodes[0].pos} end={nodes[1].pos} color={nodes[0].color} delay={0} />
+      <DataPacket start={nodes[1].pos} end={nodes[2].pos} color={nodes[1].color} delay={0.5} />
     </group>
   );
 };
 
+const DataPacket = ({ start, end, color, delay }) => {
+  const ref = useRef();
+  useFrame((state) => {
+    const t = (state.clock.elapsedTime * 0.5 + delay) % 1; // 0 to 1 looping
+    if (ref.current) {
+      ref.current.position.lerpVectors(new THREE.Vector3(...start), new THREE.Vector3(...end), t);
+    }
+  });
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[0.1, 8, 8]} />
+      <meshBasicMaterial color={color} />
+    </mesh>
+  );
+};
+
+// ── INTERACTIVE PARTICLES (Mouse Repelling) ──
+const InteractiveParticles = ({ isMobile }) => {
+  const count = isMobile ? 800 : 2500;
+  const [positions, originalPositions, colors] = useMemo(() => {
+    const p = new Float32Array(count * 3);
+    const op = new Float32Array(count * 3);
+    const c = new Float32Array(count * 3);
+    const color = new THREE.Color();
+    for (let i = 0; i < count; i++) {
+      const r = 20 + Math.random() * 40;
+      const theta = 2 * Math.PI * Math.random();
+      const phi = Math.acos(2 * Math.random() - 1);
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = r * Math.sin(phi) * Math.sin(theta);
+      const z = r * Math.cos(phi);
+      p[i * 3] = op[i * 3] = x;
+      p[i * 3 + 1] = op[i * 3 + 1] = y;
+      p[i * 3 + 2] = op[i * 3 + 2] = z;
+      
+      const mixedColor = Math.random() > 0.5 ? '#ffffff' : '#a855f7';
+      color.set(mixedColor);
+      c[i * 3] = color.r;
+      c[i * 3 + 1] = color.g;
+      c[i * 3 + 2] = color.b;
+    }
+    return [p, op, c];
+  }, [count]);
+
+  const pointsRef = useRef();
+  const { mouse, camera } = useThree();
+  const vec = new THREE.Vector3();
+
+  useFrame((state) => {
+    if (!pointsRef.current) return;
+    const time = state.clock.elapsedTime;
+    
+    // Convert mouse to 3D world space (approximate projection)
+    vec.set(mouse.x * 20, mouse.y * 20, 0);
+    vec.unproject(camera);
+    vec.sub(camera.position).normalize();
+    const distance = 10;
+    const mouseWorld = camera.position.clone().add(vec.multiplyScalar(distance));
+
+    const positionsArray = pointsRef.current.geometry.attributes.position.array;
+    for (let i = 0; i < count; i++) {
+      const idx = i * 3;
+      const ox = originalPositions[idx];
+      const oy = originalPositions[idx + 1];
+      
+      const dx = mouseWorld.x - ox;
+      const dy = mouseWorld.y - oy;
+      
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < 4) {
+        const force = (4 - dist) / 4;
+        positionsArray[idx] = ox - dx * force * 0.8;
+        positionsArray[idx + 1] = oy - dy * force * 0.8;
+      } else {
+        positionsArray[idx] += (ox - positionsArray[idx]) * 0.05;
+        positionsArray[idx + 1] += (oy - positionsArray[idx + 1]) * 0.05;
+      }
+      positionsArray[idx] += Math.sin(time * 0.5 + idx) * 0.02;
+      positionsArray[idx + 1] += Math.cos(time * 0.5 + idx) * 0.02;
+    }
+    pointsRef.current.geometry.attributes.position.needsUpdate = true;
+    pointsRef.current.rotation.y = time * 0.02;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-color" count={count} array={colors} itemSize={3} />
+      </bufferGeometry>
+      <pointsMaterial size={0.08} vertexColors transparent opacity={0.6} sizeAttenuation />
+    </points>
+  );
+};
+
+// ── CAMERA RIG ──
+// Interpolates camera position based on normalized scroll percentage.
+const CameraRig = ({ scroll, isMobile }) => {
+  const { camera, mouse } = useThree();
+  const vec = new THREE.Vector3();
+  const targetPos = new THREE.Vector3();
+  const targetLook = new THREE.Vector3();
+
+  useFrame(() => {
+    // Scroll 0 = Hero. Scroll 1 = Bottom of page.
+    // We want the camera to move down to the architecture nodes as we scroll.
+    
+    // Smooth scroll interpolation
+    const scrollDepth = scroll * 18; // Move camera down by 18 units max
+
+    if (isMobile) {
+      targetPos.set(0, -scrollDepth, 12);
+    } else {
+      // Add subtle mouse parallax on desktop
+      targetPos.set(mouse.x * 2, -scrollDepth + (mouse.y * 1), 10);
+    }
+    
+    camera.position.lerp(targetPos, 0.05);
+    
+    // Look at target moves down with scroll
+    targetLook.set(0, -scrollDepth, 0);
+    
+    // Create a temporary quaternion to store the target rotation
+    const currentRot = camera.quaternion.clone();
+    camera.lookAt(targetLook);
+    const targetRot = camera.quaternion.clone();
+    
+    // Revert and slerp for ultra smooth looking
+    camera.quaternion.copy(currentRot);
+    camera.quaternion.slerp(targetRot, 0.05);
+  });
+  
+  return null;
+};
+
+// ── MAIN SCENE EXPORT ──
 export default function Scene3D() {
   const [mounted, setMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const scroll = useScrollPos();
 
   useEffect(() => {
     setMounted(true);
@@ -154,54 +341,37 @@ export default function Scene3D() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  if (!mounted) return null; // Prevent SSR hydration mismatch
+  if (!mounted) return null;
 
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 50%, #17072b 0%, #050209 100%)', overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none', background: '#000000', overflow: 'hidden' }}>
       
-      {/* Pure CSS Fallback: Guaranteed to show even if WebGL completely crashes in WhatsApp/Embedded browsers */}
-      {isMobile && (
-        <div style={{ position: 'absolute', top: '80%', left: '50%', transform: 'translate(-50%, -50%)', width: '250px', height: '250px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(126,34,206,0.2) 0%, rgba(219,39,119,0.05) 50%, transparent 70%)', filter: 'blur(15px)', zIndex: 1 }} />
-      )}
-
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={isMobile ? 1 : [1, 2]} style={{ position: 'relative', zIndex: 2 }}>
+      <Canvas camera={{ position: [0, 0, 10], fov: 45 }} dpr={isMobile ? 1 : [1, 2]}>
+        <color attach="background" args={['#000000']} />
+        
+        {/* Lighting critical for glassmorphism */}
         <ambientLight intensity={0.2} />
-        <pointLight position={[10, 10, 10]} intensity={1.5} color="#ec4899" />
-        <pointLight position={[-10, -10, -10]} intensity={1} color="#3b82f6" />
+        <spotLight position={[10, 10, 10]} intensity={2} color="#ffffff" penumbra={1} />
+        <spotLight position={[-10, 0, -10]} intensity={2} color="#a855f7" penumbra={1} />
+        <spotLight position={[0, -20, 0]} intensity={2} color="#3b82f6" penumbra={1} />
         
-        <NeuralCore isMobile={isMobile} />
-        {!isMobile && <NetworkLines isMobile={isMobile} />}
-        
-        {/* Cinematic Particles */}
-        <Stars radius={100} depth={50} count={isMobile ? 300 : 2000} factor={4} saturation={0} fade speed={1} />
-        <Sparkles count={isMobile ? 50 : 300} scale={15} size={isMobile ? 6 : 4} speed={0.4} opacity={isMobile ? 0.8 : 0.4} color="#fbcfe8" noise={1} />
-        {!isMobile && <Sparkles count={150} scale={20} size={6} speed={0.6} opacity={0.2} color="#8b5cf6" noise={2} />}
-        
-        {/* Infinite Grid for extreme depth scale */}
-        {!isMobile && (
-          <Grid 
-            position={[0, -4, 0]} 
-            args={[20, 20]} 
-            cellSize={1} 
-            cellThickness={0.5} 
-            cellColor="#db2777" 
-            sectionSize={4} 
-            sectionThickness={1} 
-            sectionColor="#ec4899" 
-            fadeDistance={25} 
-            fadeStrength={1} 
-          />
-        )}
-        
-        <Rig isMobile={isMobile} />
+        {/* Environment map for realistic glass reflections (studio lighting) */}
+        <Environment preset="studio" />
 
-        {!isMobile && (
-          <EffectComposer disableNormalPass multisampling={4}>
-            <Bloom luminanceThreshold={0.2} mipmapBlur={true} intensity={1.5} />
-            <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={[0.001, 0.001]} />
-            <Vignette eskil={false} offset={0.1} darkness={1.1} />
-          </EffectComposer>
-        )}
+        <HeroCore />
+        <ArchitectureNodes isMobile={isMobile} />
+        
+        {/* Deep Space Background Interactive Particles */}
+        <InteractiveParticles isMobile={isMobile} />
+
+        <CameraRig scroll={scroll} isMobile={isMobile} />
+
+        {/* Minimal, professional post-processing */}
+        <EffectComposer disableNormalPass multisampling={isMobile ? 0 : 4}>
+          <Bloom luminanceThreshold={0.5} mipmapBlur intensity={1.2} radius={0.5} />
+          <Noise opacity={0.03} />
+          <Vignette eskil={false} offset={0.1} darkness={1.1} />
+        </EffectComposer>
       </Canvas>
     </div>
   );
