@@ -154,7 +154,7 @@ export default function Home() {
   const signOut = () => {
     localStorage.removeItem('assignai_user');
     setUser(null);
-    setView('auth');
+    setView('landing');
     setOtpSent(false);
     setAuthEmail('');
     setAuthOtp('');
@@ -701,6 +701,13 @@ CRITICAL RULES:
     // Switch to export mode: hides HTML headers/footers and removes CSS padding
     // so we can rely purely on html2pdf's native margins and pagination.
     el.classList.add('pdf-export-mode');
+    
+    // Force desktop width so mobile doesn't shrink/scatter the PDF
+    const oldWidth = el.style.width;
+    const oldMaxWidth = el.style.maxWidth;
+    el.style.width = '1024px';
+    el.style.maxWidth = '1024px';
+
     if (container) {
       container.style.overflowX = 'visible';
       container.style.overflow = 'visible';
@@ -710,7 +717,7 @@ CRITICAL RULES:
       margin: [25, 0, 25, 0],  // Top and Bottom margins only! (Left/Right handled by CSS padding)
       filename: `Report_${form.subject}.pdf`, 
       image: { type: 'jpeg', quality: 0.98 }, 
-      html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: document.documentElement.offsetWidth, letterRendering: true }, 
+      html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 1024, letterRendering: true }, 
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.question-label', 'p', 'tr', 'td'] }
     };
@@ -744,6 +751,8 @@ CRITICAL RULES:
       const blob = await worker.outputPdf('blob');
       pdfBlobRef.current = blob;
       el.classList.remove('pdf-export-mode');
+      el.style.width = oldWidth;
+      el.style.maxWidth = oldMaxWidth;
       if (container) {
         container.style.overflowX = oldOverflow;
         container.style.overflow = '';
@@ -752,6 +761,8 @@ CRITICAL RULES:
     }
     await worker.save();
     el.classList.remove('pdf-export-mode');
+    el.style.width = oldWidth;
+    el.style.maxWidth = oldMaxWidth;
     if (container) {
       container.style.overflowX = oldOverflow;
       container.style.overflow = '';
