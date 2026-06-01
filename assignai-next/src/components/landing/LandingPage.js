@@ -272,12 +272,12 @@ export default function LandingPage({ onStart, isLoggedIn }) {
                        </div>
                        
                        {/* Progress Bar & Text */}
-                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1 }}>
-                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'clamp(0.7rem, 2.5vw, 0.85rem)', color: '#fbcfe8', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                           <span style={{ animation: 'pulse 2s ease-in-out infinite' }}>Synthesizing...</span>
-                           <span>84%</span>
+                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1, minWidth: 0 }}>
+                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'clamp(0.65rem, 2vw, 0.85rem)', color: '#fbcfe8', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.5px' }}>
+                           <span style={{ animation: 'pulse 2s ease-in-out infinite', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Synthesizing...</span>
+                           <span style={{ flexShrink: 0, marginLeft: '0.5rem' }}>84%</span>
                          </div>
-                         <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                         <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden', width: '100%' }}>
                            <div style={{ height: '100%', width: '84%', background: 'linear-gradient(90deg, #db2777, #a855f7)', boxShadow: '0 0 10px rgba(236,72,153,0.5)', borderRadius: '3px' }} />
                          </div>
                        </div>

@@ -48,32 +48,26 @@ const NeuralCore = ({ isMobile }) => {
       <Float speed={1.5} rotationIntensity={0.8} floatIntensity={1.5}>
         <mesh ref={coreRef} scale={1.8}>
           <icosahedronGeometry args={[1, 2]} />
-          <meshPhysicalMaterial 
-            color={isMobile ? "#ff007f" : "#0a0a0a"}
-            emissive="#db2777"
-            emissiveIntensity={isMobile ? 2 : 0.6}
-            roughness={0.2}
-            metalness={0.8}
-            wireframe={true}
-            transparent
-            opacity={isMobile ? 0.8 : 0.3}
-            blending={isMobile ? THREE.AdditiveBlending : THREE.NormalBlending}
-          />
+          {isMobile ? (
+            <meshBasicMaterial color="#ff007f" wireframe transparent opacity={0.6} blending={THREE.AdditiveBlending} />
+          ) : (
+            <meshPhysicalMaterial 
+              color="#0a0a0a" emissive="#db2777" emissiveIntensity={0.6}
+              roughness={0.2} metalness={0.8} wireframe transparent opacity={0.3}
+            />
+          )}
         </mesh>
         
         <mesh ref={outerRef} scale={2.5}>
           <icosahedronGeometry args={[1, 1]} />
-          <meshPhysicalMaterial 
-            color="#db2777"
-            emissive={isMobile ? "#db2777" : "#000000"}
-            emissiveIntensity={isMobile ? 1.5 : 0}
-            wireframe={true}
-            transparent
-            opacity={isMobile ? 0.5 : 0.15}
-            roughness={0.1}
-            metalness={1}
-            blending={isMobile ? THREE.AdditiveBlending : THREE.NormalBlending}
-          />
+          {isMobile ? (
+            <meshBasicMaterial color="#db2777" wireframe transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+          ) : (
+            <meshPhysicalMaterial 
+              color="#db2777" emissive="#000000" emissiveIntensity={0}
+              wireframe transparent opacity={0.15} roughness={0.1} metalness={1}
+            />
+          )}
         </mesh>
         
         {/* Inner solid glowing core */}
@@ -163,8 +157,14 @@ export default function Scene3D() {
   if (!mounted) return null; // Prevent SSR hydration mismatch
 
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 50%, #17072b 0%, #050209 100%)' }}>
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={isMobile ? 1 : [1, 2]}>
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none', background: 'radial-gradient(circle at 50% 50%, #17072b 0%, #050209 100%)', overflow: 'hidden' }}>
+      
+      {/* Pure CSS Fallback: Guaranteed to show even if WebGL completely crashes in WhatsApp/Embedded browsers */}
+      {isMobile && (
+        <div style={{ position: 'absolute', top: '70%', left: '50%', transform: 'translate(-50%, -50%)', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,0,127,0.4) 0%, rgba(219,39,119,0.1) 40%, transparent 70%)', boxShadow: '0 0 100px rgba(255,0,127,0.3)', zIndex: 1 }} />
+      )}
+
+      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={isMobile ? 1 : [1, 2]} style={{ position: 'relative', zIndex: 2 }}>
         <ambientLight intensity={0.2} />
         <pointLight position={[10, 10, 10]} intensity={1.5} color="#ec4899" />
         <pointLight position={[-10, -10, -10]} intensity={1} color="#3b82f6" />
