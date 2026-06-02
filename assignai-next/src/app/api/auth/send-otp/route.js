@@ -99,9 +99,12 @@ export async function POST(request) {
                       <h1 class="title-text" style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">AssignAI</h1>
                       <p style="color: rgba(255,255,255,0.95); margin: 12px 0 0 0; font-size: 16px; font-weight: 600;">Your AI-Powered Assignment Assistant</p>
                       
-                      <div style="margin-top: 30px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.3);">
-                        <p style="margin: 0 0 10px 0; color: rgba(255,255,255,0.85); font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">Proudly Architected & Engineered by</p>
-                        <span style="background: linear-gradient(90deg, #fcd34d, #fbbf24); color: #0f172a; padding: 6px 16px; border-radius: 8px; font-size: 16px; font-weight: 900; letter-spacing: 2px; box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4); display: inline-block;">MOHAMED FAZIL PASHA</span>
+                      <div style="margin-top: 35px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.3);">
+                        <p style="margin: 0 0 12px 0; color: rgba(255,255,255,0.9); font-size: 11px; text-transform: uppercase; letter-spacing: 3px; font-weight: 700;">Officially Signed & Secured By</p>
+                        <div style="display: inline-block; background: linear-gradient(90deg, #fcd34d, #fbbf24); color: #0f172a; padding: 10px 20px; border-radius: 10px; box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);">
+                          <span style="display: block; font-size: 18px; font-weight: 900; letter-spacing: 2px; margin-bottom: 4px;">MOHAMED FAZIL PASHA</span>
+                          <span style="display: block; font-size: 12px; font-weight: 700; color: #1e293b; letter-spacing: 1px; text-transform: uppercase; opacity: 0.9;">Founder & Lead Engineer, AssignAI</span>
+                        </div>
                       </div>
                     </td>
                   </tr>
