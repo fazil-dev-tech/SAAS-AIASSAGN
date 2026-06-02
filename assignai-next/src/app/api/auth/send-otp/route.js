@@ -95,16 +95,16 @@ export async function POST(request) {
                   
                   <!-- Header with Glassmorphism Vibe -->
                   <tr>
-                    <td class="header-padding" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 50px 30px; text-align: center; position: relative;">
+                    <td class="header-padding" style="background-color: #059669; background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 50px 30px; text-align: center; position: relative;">
                       <h1 class="title-text" style="color: #ffffff; margin: 0; font-size: 36px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase;">AssignAI</h1>
                       <div style="margin: 15px 0 20px 0;">
-                        <span style="background: linear-gradient(90deg, #fcd34d, #f59e0b); color: #0f172a; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);">Premium AI Engine</span>
+                        <span style="background-color: #f59e0b; background: linear-gradient(90deg, #fcd34d, #f59e0b); color: #0f172a; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);">Premium AI Engine</span>
                       </div>
                       <p style="color: rgba(255,255,255,0.95); margin: 0; font-size: 16px; font-weight: 600;">Your Ultimate Assignment Assistant</p>
                       
                       <div style="margin-top: 35px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.3);">
                         <p style="margin: 0 0 12px 0; color: rgba(255,255,255,0.9); font-size: 11px; text-transform: uppercase; letter-spacing: 3px; font-weight: 700;">Officially Signed & Secured By</p>
-                        <div style="display: inline-block; background: linear-gradient(90deg, #fcd34d, #fbbf24); color: #0f172a; padding: 10px 20px; border-radius: 10px; box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);">
+                        <div style="display: inline-block; background-color: #fbbf24; background: linear-gradient(90deg, #fcd34d, #fbbf24); color: #0f172a; padding: 10px 20px; border-radius: 10px; box-shadow: 0 4px 20px rgba(251, 191, 36, 0.3);">
                           <span style="display: block; font-size: 18px; font-weight: 900; letter-spacing: 2px; margin-bottom: 4px;">MOHAMED FAZIL PASHA</span>
                           <span style="display: block; font-size: 12px; font-weight: 700; color: #1e293b; letter-spacing: 1px; text-transform: uppercase; opacity: 0.9;">Founder & Lead Engineer, AssignAI</span>
                         </div>
