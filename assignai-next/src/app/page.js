@@ -874,7 +874,7 @@ ${rawMarkdown}`;
     if (type === 'docx') exportDocx();
   };
 
-  /* ── EXPORT: EMAIL (sends REAL PDF, not placeholder) ── */
+  /* ── EXPORT: EMAIL (sends HTML to backend to generate PDF internally) ── */
   const [emailTo, setEmailTo] = useState('');
   const [emailSending, setEmailSending] = useState(false);
   const sendEmail = async () => {
@@ -882,24 +882,46 @@ ${rawMarkdown}`;
     setEmailSending(true);
     toast('Generating PDF for email attachment...', 'info');
     try {
-      const blob = await exportPdf(true);
-      if (!blob) throw new Error("Could not generate PDF Blob.");
+      const el = document.getElementById('report-preview-content');
+      if (!el) throw new Error("Report content not found");
       
-      const reader = new FileReader();
-      const base64 = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      const clone = el.cloneNode(true);
+      const screenHeader = clone.querySelector('.report-header');
+      if (screenHeader) screenHeader.remove();
+      const screenFooter = clone.querySelector('.report-footer');
+      if (screenFooter) screenFooter.remove();
+
+      const payload = { 
+        to: emailTo, 
+        subject: `Assignment Report: ${form.subject}`, 
+        text: `Your AI-generated report for "${form.title}" is attached.`, 
+        htmlContent: clone.outerHTML, 
+        filename: `Report_${(form.subject || 'Assignment').replace(/\s+/g, '_')}.pdf` 
+      };
+
       const res = await fetch('/api/email', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: emailTo, subject: `Assignment Report: ${form.subject}`, text: `Your AI-generated report for "${form.title}" is attached.`, pdfBase64: base64, filename: `Report_${form.subject}.pdf` })
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      
+      // Attempt to parse JSON gracefully to avoid "Request Entity Too Large" crash
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        throw new Error("Server returned an invalid response (Payload likely too large)");
+      }
+      
       if (data.error) throw new Error(data.error);
       toast('Email sent with PDF attachment!', 'success');
-    } catch (e) { toast('Email failed: ' + e.message, 'error'); }
-    setEmailSending(false);
+      setShowScannerModal(false);
+    } catch (e) {
+      console.error(e);
+      toast('Email failed: ' + e.message, 'error');
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   /* ── KEYBOARD SHORTCUTS ── */

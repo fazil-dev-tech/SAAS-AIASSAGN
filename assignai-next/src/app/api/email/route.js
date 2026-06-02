@@ -1,16 +1,72 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 export async function POST(request) {
   try {
-    const { to, subject, text, pdfBase64, filename } = await request.json();
+    const { to, subject, text, filename, htmlContent } = await request.json();
 
-    if (!to || !pdfBase64) {
+    if (!to || !htmlContent) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Configure Nodemailer securely on the backend
-    // In production, use process.env.SMTP_USER and process.env.SMTP_PASS
+    // Generate PDF Internally to bypass Vercel 4.5MB Payload Limit
+    let browser;
+    let pdfBuffer;
+    try {
+      const isLocal = process.env.NODE_ENV === 'development';
+      browser = await puppeteer.launch({
+        args: isLocal ? ['--no-sandbox', '--disable-setuid-sandbox'] : chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: isLocal 
+          ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
+          : await chromium.executablePath(),
+        headless: isLocal ? true : chromium.headless,
+      });
+
+      const page = await browser.newPage();
+      
+      const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body, html { font-family: 'Times New Roman', Cambria, Georgia, serif; margin: 0; padding: 0; color: #000; background: #fff; line-height: 1.5; }
+          * { color: #000 !important; }
+          h1, h2, h3, h4, h5, h6 { font-family: 'Times New Roman', serif; page-break-after: avoid; break-after: avoid; color: #000; margin-top: 18pt; margin-bottom: 6pt; }
+          h1.report-title { font-size: 20pt; font-weight: bold; text-align: center; }
+          .q-heading { font-size: 14pt; font-weight: bold; text-align: left; color: #000; margin-top: 0; margin-bottom: 10px; }
+          h4 { font-size: 13pt; font-weight: bold; margin-bottom: 5px; }
+          h5, h6 { font-size: 12pt; font-weight: bold; margin-bottom: 5px; }
+          p, li { text-align: justify; line-height: 1.25; margin-top: 0; margin-bottom: 6px; font-size: 12pt; }
+          ul, ol { margin-bottom: 6px; padding-left: 20px; }
+          img, svg, canvas { max-width: 65%; height: auto; display: block; margin: 15px auto; border-radius: 4px; }
+          pre { font-size: 10pt; background-color: #f9f9f9; padding: 10px; border: 1px solid #ddd; max-width: 100%; overflow: hidden; margin: 10px auto; }
+          strong, b { font-weight: bold; }
+          h1, h2, h3, h4, h5, h6, .q-heading { page-break-after: avoid; break-after: avoid; page-break-inside: avoid; break-inside: avoid; }
+          p, li { orphans: 2; widows: 2; }
+          img, table, tr, figure, .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+          hr { border: 0; border-top: 1px solid #ccc; margin: 15px 0; }
+        </style>
+      </head>
+      <body>
+        <div style="padding: 20px 40px; max-width: 800px; margin: 0 auto;">
+          ${htmlContent}
+        </div>
+      </body>
+      </html>`;
+
+      await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
+      pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '0.8in', right: '0.8in', bottom: '0.8in', left: '0.8in' }});
+    } catch (err) {
+      console.error("Internal PDF Gen Error:", err);
+      return NextResponse.json({ error: "Internal PDF Generation failed" }, { status: 500 });
+    } finally {
+      if (browser) await browser.close();
+    }
+
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 465,
@@ -20,9 +76,6 @@ export async function POST(request) {
         pass: process.env.SMTP_PASS?.replace(/"/g, '') || 'hknw ipix ynwa unjj',
       },
     });
-
-    // Strip the "data:application/pdf;base64," prefix if it exists
-    const base64Data = pdfBase64.replace(/^data:application\/pdf;base64,/, "");
 
     const mailOptions = {
       from: process.env.SMTP_USER || 'mohamedfazilpasha156@gmail.com',
@@ -95,16 +148,21 @@ export async function POST(request) {
                       </div>
 
                       <hr style="border: none; border-top: 1px solid #334155; margin: 30px 0;" />
-
-                      <!-- Footer -->
-                      <div style="text-align: center;">
-                        <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.6;">
-                          <strong>AssignAI Premium SaaS</strong><br>
-                          Automating academic success with Artificial Intelligence.
-                        </p>
-                      </div>
                     </td>
                   </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding: 30px; text-align: center; background-color: #0f172a; border-top: 1px solid #1e293b;">
+                      <p style="margin: 0 0 15px 0; color: #94a3b8; font-size: 14px;">
+                        This email was securely generated by the AssignAI Engine.
+                      </p>
+                      <p style="margin: 0; color: #64748b; font-size: 12px;">
+                        &copy; ${new Date().getFullYear()} AssignAI. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+                  
                 </table>
               </td>
             </tr>
@@ -114,19 +172,18 @@ export async function POST(request) {
       `,
       attachments: [
         {
-          filename: filename || 'Report.pdf',
-          content: base64Data,
-          encoding: 'base64',
+          filename: filename || 'AssignAI_Report.pdf',
+          content: pdfBuffer,
+          contentType: 'application/pdf',
         },
       ],
     };
 
-    await transporter.sendMail(mailOptions);
-
+    const info = await transporter.sendMail(mailOptions);
     return NextResponse.json({ success: true, message: "Email sent securely!" }, { status: 200 });
 
   } catch (error) {
-    console.error("Email Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Email API Error:", error);
+    return NextResponse.json({ error: error.message || "Failed to send email" }, { status: 500 });
   }
 }
