@@ -97,7 +97,7 @@ const MinimalCard = ({ title, desc, icon }) => {
         }}
       />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <div style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#a855f7' }}>{icon}</div>
+        <div style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#10b981' }}>{icon}</div>
         <h3 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem', color: '#fff', letterSpacing: '-0.02em' }}>{title}</h3>
         <p style={{ color: '#888', lineHeight: 1.6, fontSize: '1rem' }}>{desc}</p>
       </div>
@@ -120,7 +120,7 @@ const ArchitectureBlock = ({ title, desc, index }) => (
       pointerEvents: 'auto',
     }}
   >
-    <div style={{ color: '#a855f7', fontSize: '1rem', fontWeight: 700, letterSpacing: '2px', marginBottom: '1rem' }}>STEP 0{index}</div>
+    <div style={{ color: '#0ea5e9', fontSize: '1rem', fontWeight: 700, letterSpacing: '2px', marginBottom: '1rem' }}>STEP 0{index}</div>
     <h3 style={{ fontSize: '3rem', fontWeight: 700, color: '#fff', marginBottom: '1.5rem', letterSpacing: '-0.03em', lineHeight: 1.1 }}>{title}</h3>
     <p style={{ color: '#888', fontSize: '1.25rem', lineHeight: 1.6, maxWidth: '500px' }}>{desc}</p>
   </motion.div>
@@ -165,7 +165,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
           <img src="/logo.png" alt="AssignAI Logo" style={{ height: '35px', filter: 'invert(1) brightness(1.5)', mixBlendMode: 'screen' }} />
         </div>
         <div style={{ pointerEvents: 'auto' }}>
-          <button onClick={onStart} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', transition: 'color 0.3s ease' }} onMouseOver={(e) => e.target.style.color = '#a855f7'} onMouseOut={(e) => e.target.style.color = '#fff'}>
+          <button onClick={onStart} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', transition: 'color 0.3s ease' }} onMouseOver={(e) => e.target.style.color = '#10b981'} onMouseOut={(e) => e.target.style.color = '#fff'}>
             {isLoggedIn ? 'Dashboard' : 'Sign In'}
           </button>
         </div>

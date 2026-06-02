@@ -37,8 +37,8 @@ export async function POST(request) {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS?.replace(/"/g, '') // remove quotes if any
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS?.replace(/"/g, '') // remove quotes if any
       }
     });
 
@@ -53,57 +53,86 @@ export async function POST(request) {
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+            
+            body, table, td, p, a, h1, h2, h3 {
+              font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            }
+
+            @keyframes pulseGlow {
+              0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+              70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
+              100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+            }
+
+            @keyframes slideUp {
+              from { opacity: 0; transform: translateY(20px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+
+            .animated-box {
+              animation: slideUp 0.8s ease-out forwards;
+            }
+
+            .pulse-container {
+              animation: pulseGlow 2s infinite;
+            }
+
             @media screen and (max-width: 600px) {
-              .email-container { width: 100% !important; border-radius: 0 !important; box-shadow: none !important; }
+              .email-container { width: 100% !important; border-radius: 0 !important; }
               .header-padding { padding: 30px 15px !important; }
               .content-padding { padding: 30px 15px !important; }
-              .title-text { font-size: 24px !important; }
-              .otp-text { font-size: 36px !important; letter-spacing: 4px !important; }
-              .wrapper-padding { padding: 0 !important; }
+              .title-text { font-size: 26px !important; }
+              .otp-text { font-size: 38px !important; letter-spacing: 6px !important; }
             }
           </style>
         </head>
-        <body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-font-smoothing: antialiased;">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f7f6; padding: 40px 20px;" class="wrapper-padding">
+        <body style="margin: 0; padding: 0; background-color: #0f172a; -webkit-font-smoothing: antialiased;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #0f172a; padding: 40px 20px;">
             <tr>
               <td align="center">
-                <table width="100%" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.08);">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" class="email-container animated-box" style="max-width: 600px; background-color: #1e293b; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.6); border: 1px solid #334155;">
                   
-                  <!-- Header -->
+                  <!-- Header with Glassmorphism Vibe -->
                   <tr>
-                    <td class="header-padding" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
-                      <h1 class="title-text" style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 1px;">AssignAI</h1>
-                      <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 15px;">Your AI-Powered Assignment Assistant</p>
+                    <td class="header-padding" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 50px 30px; text-align: center; position: relative;">
+                      <h1 class="title-text" style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">AssignAI</h1>
+                      <p style="color: rgba(255,255,255,0.95); margin: 12px 0 0 0; font-size: 16px; font-weight: 600;">Your AI-Powered Assignment Assistant</p>
+                      
+                      <div style="margin-top: 30px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.3);">
+                        <p style="margin: 0 0 10px 0; color: rgba(255,255,255,0.85); font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">Proudly Architected & Engineered by</p>
+                        <span style="background: linear-gradient(90deg, #fcd34d, #fbbf24); color: #0f172a; padding: 6px 16px; border-radius: 8px; font-size: 16px; font-weight: 900; letter-spacing: 2px; box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4); display: inline-block;">MOHAMED FAZIL PASHA</span>
+                      </div>
                     </td>
                   </tr>
 
                   <!-- Body -->
                   <tr>
                     <td class="content-padding" style="padding: 40px 30px;">
-                      <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 22px; font-weight: 700;">Secure Login Request</h2>
-                      <p style="margin: 0 0 25px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                      <h2 style="margin: 0 0 20px 0; color: #f8fafc; font-size: 24px; font-weight: 800;">Secure Login Request</h2>
+                      <p style="margin: 0 0 35px 0; color: #cbd5e1; font-size: 16px; line-height: 1.7;">
                         Hello there,<br><br>
-                        We received a request to access your AssignAI Dashboard. Please use the secure One-Time Passcode (OTP) below to authenticate your session.
+                        We received a request to access your AssignAI Dashboard. Please use the secure One-Time Passcode (OTP) below to authenticate your highly secure session.
                       </p>
 
-                      <!-- OTP Box -->
-                      <div style="background: linear-gradient(to right, #f8fafc, #f1f5f9); border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 25px;">
-                        <span style="display: block; font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 10px;">Your Access Code</span>
-                        <h1 class="otp-text" style="margin: 0; color: #0f172a; font-size: 42px; font-weight: 800; letter-spacing: 8px; font-family: monospace;">${code}</h1>
+                      <!-- Animated OTP Box -->
+                      <div class="pulse-container" style="background: linear-gradient(135deg, #0f172a, #1e293b); border: 2px solid #10b981; border-radius: 16px; padding: 30px; text-align: center; margin-bottom: 35px; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.15);">
+                        <span style="display: block; font-size: 14px; color: #10b981; text-transform: uppercase; font-weight: 800; letter-spacing: 2px; margin-bottom: 15px;">Your Access Code</span>
+                        <h1 class="otp-text" style="margin: 0; color: #ffffff; font-size: 48px; font-weight: 900; letter-spacing: 12px; font-family: monospace;">${code}</h1>
                       </div>
 
-                      <p style="margin: 0 0 30px 0; color: #64748b; font-size: 14px; line-height: 1.5; text-align: center;">
+                      <p style="margin: 0 0 40px 0; color: #94a3b8; font-size: 15px; line-height: 1.6; text-align: center; padding: 15px; background-color: rgba(239, 68, 68, 0.05); border-radius: 8px; border-left: 4px solid #ef4444;">
                         <strong style="color: #ef4444;">Security Notice:</strong> This code will expire in 10 minutes. If you did not request this, please ignore and delete this email.
                       </p>
 
-                      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+                      <hr style="border: none; border-top: 1px solid #334155; margin: 30px 0;" />
                       
                       <!-- Footer -->
-                      <p style="margin: 0; color: #94a3b8; font-size: 13px; text-align: center; line-height: 1.5;">
+                      <p style="margin: 0; color: #64748b; font-size: 14px; text-align: center; line-height: 1.6;">
                         <strong>AssignAI Premium SaaS</strong><br>
                         Automating academic success with Artificial Intelligence.<br>
                         <br>
-                        <a href="#" style="color: #10b981; text-decoration: none;">Help & Support</a> &bull; <a href="#" style="color: #10b981; text-decoration: none;">Privacy Policy</a>
+                        <a href="#" style="color: #10b981; text-decoration: none; font-weight: 600;">Help & Support</a> &nbsp;&bull;&nbsp; <a href="#" style="color: #10b981; text-decoration: none; font-weight: 600;">Privacy Policy</a>
                       </p>
                     </td>
                   </tr>

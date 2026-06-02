@@ -279,8 +279,8 @@ const InteractiveParticles = ({ isMobile }) => {
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-        <bufferAttribute attach="attributes-color" count={count} array={colors} itemSize={3} />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial size={0.08} vertexColors transparent opacity={0.6} sizeAttenuation />
     </points>
@@ -367,7 +367,7 @@ export default function Scene3D() {
         <CameraRig scroll={scroll} isMobile={isMobile} />
 
         {/* Minimal, professional post-processing */}
-        <EffectComposer disableNormalPass multisampling={isMobile ? 0 : 4}>
+        <EffectComposer key={isMobile ? 'mobile' : 'desktop'} disableNormalPass multisampling={isMobile ? 0 : 4}>
           <Bloom luminanceThreshold={0.5} mipmapBlur intensity={1.2} radius={0.5} />
           <Noise opacity={0.03} />
           <Vignette eskil={false} offset={0.1} darkness={1.1} />

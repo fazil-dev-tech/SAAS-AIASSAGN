@@ -258,7 +258,7 @@ export default function Home() {
   const INITIAL_FORM = {
     title: '', subject: 'Biology for Engineers', course: '', dept: 'ISE',
     inst: 'Siddaganga Institute of Technology, Tumakuru',
-    includeCoverPage: true,
+    contentLength: 'Detailed',
     students: [{ name: '', roll: '' }],
   };
   const [form, setForm] = useState(INITIAL_FORM);
@@ -636,30 +636,91 @@ ${rawText.substring(0, 8000)}`;
 
         const needsDiagram = includeImages && /diagram|architecture|flowchart|block\s*diagram|structure|draw|image|illustrate|sketch|figure|picture|table/i.test(q.text);
         
-        // Force full-page answers (target ~450 words) to ensure 1 question = 1 full page.
-        // If it has a diagram, it will naturally push to ~1.5 - 2 pages.
-        const minWords = total > 20 ? 250 : 450; 
+        // Content Length Logic
+        let minWords = 450;
+        let lengthRule = "Be EXTREMELY comprehensive and highly detailed.";
+        if (form.contentLength === 'Short') {
+           minWords = 150;
+           lengthRule = "Be concise and brief. Get straight to the point without excessive filler.";
+        } else if (form.contentLength === 'Medium') {
+           minWords = 300;
+           lengthRule = "Write a well-balanced, standard length academic answer.";
+        }
+        
+        // If generating massive batches, throttle the maximum size to prevent rate limits
+        if (total > 20 && minWords > 250) minWords = 250; 
+        
         const seed = `${Date.now()}-${user?.email}-${Math.random().toString(36).slice(2)}`;
-        const prompt = `You are a senior academic professor writing an extremely detailed and exhaustive answer for "${form.subject}".
+        // --- PASS 1: Content Agent (Researcher) ---
+        const contentPrompt = `You are a strict Academic Report Writer generating a professional answer for a university assignment on "${form.subject}".
 Variation seed: ${seed}
 Question: ${q.text}
 Factual context: ${context || 'Use your knowledge.'}
-Write a comprehensive, professional academic answer (target ~${minWords} words). It MUST be highly detailed to completely fill a full A4 page.
-Format as clean HTML: use <h4> for sub-headings, <p> for short paragraphs (max 4-5 sentences), <ul><li> for lists, <strong> for key terms.
-CRITICAL RULES:
-1. You MUST properly close EVERY HTML tag (e.g. <strong>term</strong>).
-2. DO NOT wrap the entire answer in bold/strong tags. Only use <strong> for short specific key terms or headings.
-3. Do NOT wrap in \`\`\`html. Return raw HTML only.`;
+
+CRITICAL STRUCTURE RULES:
+You MUST structure your answer with these exact sections (use Markdown ## headings):
+1. Introduction
+2. Main Explanation
+3. Key Points (use bullet points)
+4. Applications
+5. Example
+6. Conclusion
+
+PARAGRAPH RULES:
+- Maximum paragraph length: 100-150 words. Split large content into multiple paragraphs.
+===============
+IMPORTANT TERMS
+===============
+Important scientific or technical terms should be: Bold
+
+Write a comprehensive, professional academic answer (target ~${minWords} words). Focus PURELY on facts, logic, and depth.
+${lengthRule}
+DO NOT use HTML tags. Use basic markdown only (headers, lists, bold).
+CRITICAL: DO NOT generate any image placeholders, markdown images (![alt](url)), or HTML <img> tags. You do not have access to image URLs and it will result in broken icons in the final PDF.`;
 
         let answerText = '';
         let attempts = 0;
         let success = false;
 
-        // Retry loop to ensure NO QUESTION IS MISSED
+        // Dual-Pass Retry loop
         while (attempts < 3 && !success) {
           try {
-            const response = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
-            if (total > 5) await new Promise(r => setTimeout(r, 800)); // Rate limit protection
+            setGenLogs(l => { const c = [...l]; const idx = c.findLastIndex(x => x.text.startsWith(`✨ Q${seqNum}`)); if (idx >= 0) c[idx] = { text: `✨ Q${seqNum}: Pass 1 (Researching)...`, status: 'active' }; return c; });
+            
+            // Pass 1 Call
+            const pass1Resp = await puter.ai.chat(contentPrompt, { model: 'gpt-4o-mini' });
+            if (total > 5) await new Promise(r => setTimeout(r, 800)); 
+            
+            let rawMarkdown = '';
+            if (typeof pass1Resp === 'string') rawMarkdown = pass1Resp;
+            else if (Array.isArray(pass1Resp?.message?.content)) rawMarkdown = pass1Resp.message.content.map(c => c.text || '').join('\n');
+            else if (typeof pass1Resp?.message?.content === 'string') rawMarkdown = pass1Resp.message.content;
+            else if (pass1Resp?.text) rawMarkdown = pass1Resp.text;
+            else rawMarkdown = JSON.stringify(pass1Resp) || '';
+
+            if (rawMarkdown.length < 50) throw new Error("Pass 1: Content too short");
+
+            // --- PASS 2: Formatter Agent (Typesetter) ---
+            setGenLogs(l => { const c = [...l]; const idx = c.findLastIndex(x => x.text.startsWith(`✨ Q${seqNum}`)); if (idx >= 0) c[idx] = { text: `✨ Q${seqNum}: Pass 2 (Typesetting)...`, status: 'active' }; return c; });
+            
+            const formatPrompt = `You are a strict Document Typesetter formatting an academic PDF report. I will provide raw markdown text. You must convert it into perfectly structured, professional Academic HTML.
+
+CRITICAL RULES:
+1. ONLY output raw HTML. No \`\`\`html markdown blocks.
+2. The output MUST begin with the question heading formatted exactly like this: <h2 class="q-heading avoid-break">Q${seqNum}. ${q.text}</h2>
+3. Convert all markdown sections (Introduction, Main Explanation, etc) into <h4 class="avoid-break"> tags.
+4. Convert text into <p> tags. Wrap lists in <ul> or <ol> with <li>.
+5. ALL TEXT MUST BE BLACK. Do NOT use colored backgrounds, colored borders, or colored text. Use <strong> for emphasis instead of colors.
+6. REMOVE and IGNORE any markdown images or HTML <img> tags from the raw text. Do not render broken images.
+7. SCRUB THE TEXT: If the raw text contains "Academic year", "Biology for Engineers", "UNIT", "Page Preview", "Dept of", or any other UI/Header/Footer artifacts, you MUST DELETE THEM completely.
+8. The question MUST ONLY appear once, inside the <h2 class="q-heading avoid-break"> tag. Do not repeat the question as normal text.
+9. Ensure properly closed HTML tags.
+10. If you must generate a sketch, diagram, or table, keep it extremely COMPACT and professional. Do NOT generate massive, full-page ASCII art or oversized HTML structures.
+
+Raw Text:
+${rawMarkdown}`;
+
+            const response = await puter.ai.chat(formatPrompt, { model: 'gpt-4o-mini' });
             
             let currentText = '';
             if (typeof response === 'string') currentText = response;
@@ -751,102 +812,51 @@ CRITICAL RULES:
   /* ── EXPORT: PDF (generates real base64 for email too) ── */
   const pdfBlobRef = useRef(null);
   const exportPdf = async (returnBlob = false) => {
-    if (!window.html2pdf) {
-      const html2pdfModule = await import('html2pdf.js');
-      window.html2pdf = html2pdfModule.default || html2pdfModule;
-    }
-    const el = document.getElementById('report-preview-content');
-    const container = el.closest('.report-page-container');
-    const oldOverflow = container ? container.style.overflowX : '';
-    
-    // Switch to export mode: hides HTML headers/footers and removes CSS padding
-    // so we can rely purely on html2pdf's native margins and pagination.
-    el.classList.add('pdf-export-mode');
-    document.body.classList.add('exporting-pdf');
-    
-    // Force desktop width so mobile doesn't shrink/scatter the PDF
-    const oldWidth = el.style.width;
-    const oldMaxWidth = el.style.maxWidth;
-    const oldTransform = el.style.transform;
-    el.style.width = '1024px';
-    el.style.maxWidth = '1024px';
-    el.style.transform = 'none';
-
-    if (container) {
-      container.style.overflowX = 'visible';
-      container.style.overflow = 'visible';
-    }
-
-    const opt = { 
-      margin: [25, 0, 25, 0],  // Top and Bottom margins only! (Left/Right handled by CSS padding)
-      filename: `Report_${form.subject}.pdf`, 
-      image: { type: 'jpeg', quality: 0.98 }, 
-      html2canvas: { scale: 2, useCORS: true, scrollY: 0, windowWidth: 1024, letterRendering: true }, 
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'li', '.question-label', 'p', 'tr', 'td'] }
-    };
-    
-    // Force desktop viewport to completely prevent mobile browsers from squashing the PDF
-    const viewportMeta = document.querySelector("meta[name=viewport]");
-    const originalViewport = viewportMeta ? viewportMeta.getAttribute("content") : "";
-    if (viewportMeta) {
-      viewportMeta.setAttribute("content", "width=1024, initial-scale=1");
-    }
-
-    // Force layout recalculation
-    window.scrollTo(0,0);
-    
-    // Give browser a tick to apply the new viewport
-    await new Promise(r => setTimeout(r, 100));
-
-    const worker = window.html2pdf().set(opt).from(el).toPdf().get('pdf').then((pdf) => {
-      const totalPages = pdf.internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        pdf.setFontSize(10);
-        pdf.setTextColor(0, 0, 0);
-        
-        // Header
-        pdf.text('Academic year - 2025-26', 15, 15);
-        const subj = form.subject?.split(' | Student:')[0] || '';
-        pdf.text(subj, 195, 15, { align: 'right' });
-        pdf.setDrawColor(139, 0, 0); // #8B0000
-        pdf.setLineWidth(0.5);
-        pdf.line(15, 18, 195, 18);
-        
-        // Footer
-        pdf.line(15, 282, 195, 282);
-        pdf.text(`Dept of ${form.dept}, ${form.inst}`, 15, 287);
-        pdf.text(`Page ${i}`, 195, 287, { align: 'right' });
-      }
-    });
-
+    if (!returnBlob) toast('Generating PDF...', 'info');
     try {
+      const el = document.getElementById('report-preview-content');
+      
+      // Clone element and strip the screen-only preview header and footer
+      const clone = el.cloneNode(true);
+      const screenHeader = clone.querySelector('.report-header');
+      if (screenHeader) screenHeader.remove();
+      const screenFooter = clone.querySelector('.report-footer');
+      if (screenFooter) screenFooter.remove();
+      
+      const payload = {
+        htmlContent: clone.outerHTML,
+        subject: form.subject,
+        dept: form.dept,
+        inst: form.inst
+      };
+      
+      const res = await fetch('/api/export/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) throw new Error('PDF Generation failed on server');
+      const blob = await res.blob();
+      
       if (returnBlob) {
-        const blob = await worker.outputPdf('blob');
         pdfBlobRef.current = blob;
         return blob;
       } else {
-        await worker.save();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Report_${form.subject}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
         toast('PDF downloaded!', 'success');
       }
     } catch (e) {
       console.error(e);
-      toast('PDF generation failed', 'error');
+      toast('PDF generation failed: ' + e.message, 'error');
     } finally {
-      // Restore layout and viewport
-      el.classList.remove('pdf-export-mode');
-      document.body.classList.remove('exporting-pdf');
-      el.style.width = oldWidth;
-      el.style.maxWidth = oldMaxWidth;
-      el.style.transform = oldTransform;
-      if (container) {
-        container.style.overflowX = oldOverflow;
-        container.style.overflow = '';
-      }
-      if (viewportMeta && originalViewport) {
-        viewportMeta.setAttribute("content", originalViewport);
-      }
+      const el = document.getElementById('report-preview-content');
+      if (el) el.classList.remove('pdf-export-mode');
     }
   };
 
@@ -1211,6 +1221,14 @@ CRITICAL RULES:
                     <label className="form-label">Institution</label>
                     <input className="form-control" value={form.inst} onChange={e => updateForm('inst', e.target.value)} />
                   </div>
+                  <div className="form-group col-span-2">
+                    <label className="form-label">Content Detail Level</label>
+                    <select className="form-control" value={form.contentLength} onChange={e => updateForm('contentLength', e.target.value)}>
+                      <option value="Detailed">Detailed (Max Length)</option>
+                      <option value="Medium">Medium (Balanced)</option>
+                      <option value="Short">Short (Concise)</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(236,72,153,0.05)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(236,72,153,0.2)' }}>
@@ -1467,16 +1485,7 @@ CRITICAL RULES:
                       return (
                         <div key={i} className={`question-block ${isNewUnit && i !== 0 ? 'new-unit-break' : ''}`}>
                           
-                          {isNewUnit && (
-                            <div className="chapter-header">
-                              <div className="chapter-num">{(a.unit || '').toUpperCase()}</div>
-                            </div>
-                          )}
-
-                          <p className="question-label">
-                            <strong style={{ color: '#1F497D' }}>Q{i + 1}:</strong>{' '}
-                            <span style={{ color: '#000', fontWeight: 'normal', fontStyle: 'normal', fontSize: '11pt' }}>{a.text}</span>
-                          </p>
+                          {/* Unit and Question Label removed to rely entirely on AI formatted answer HTML */}
 
                           <div className="report-content" dangerouslySetInnerHTML={{ __html: a.answerHTML || 'Error generating answer. Please try again.' }} />
                         </div>
