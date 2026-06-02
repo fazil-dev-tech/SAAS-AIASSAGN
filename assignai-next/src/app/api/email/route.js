@@ -5,7 +5,7 @@ import chromium from '@sparticuz/chromium';
 
 export async function POST(request) {
   try {
-    const { to, subject, text, filename, htmlContent } = await request.json();
+    const { to, subject, text, filename, htmlContent, dept, inst, reportSubject } = await request.json();
 
     if (!to || !htmlContent) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -33,33 +33,160 @@ export async function POST(request) {
       <head>
         <meta charset="utf-8">
         <style>
-          body, html { font-family: 'Times New Roman', Cambria, Georgia, serif; margin: 0; padding: 0; color: #000; background: #fff; line-height: 1.5; }
+          body, html {
+            font-family: 'Times New Roman', Cambria, Georgia, serif;
+            margin: 0;
+            padding: 0;
+            color: #000;
+            background: #fff;
+            line-height: 1.5;
+          }
+
+          /* Global Typography */
           * { color: #000 !important; }
-          h1, h2, h3, h4, h5, h6 { font-family: 'Times New Roman', serif; page-break-after: avoid; break-after: avoid; color: #000; margin-top: 18pt; margin-bottom: 6pt; }
+
+          h1, h2, h3, h4, h5, h6 {
+            font-family: 'Times New Roman', serif;
+            page-break-after: avoid;
+            break-after: avoid;
+            color: #000;
+            margin-top: 18pt;
+            margin-bottom: 6pt;
+          }
+          
           h1.report-title { font-size: 20pt; font-weight: bold; text-align: center; }
           .q-heading { font-size: 14pt; font-weight: bold; text-align: left; color: #000; margin-top: 0; margin-bottom: 10px; }
           h4 { font-size: 13pt; font-weight: bold; margin-bottom: 5px; }
           h5, h6 { font-size: 12pt; font-weight: bold; margin-bottom: 5px; }
-          p, li { text-align: justify; line-height: 1.25; margin-top: 0; margin-bottom: 6px; font-size: 12pt; }
+          
+          p, li {
+            text-align: justify;
+            line-height: 1.25;
+            margin-top: 0;
+            margin-bottom: 6px;
+            font-size: 12pt;
+          }
+          
           ul, ol { margin-bottom: 6px; padding-left: 20px; }
+          
           img, svg, canvas { max-width: 65%; height: auto; display: block; margin: 15px auto; border-radius: 4px; }
           pre { font-size: 10pt; background-color: #f9f9f9; padding: 10px; border: 1px solid #ddd; max-width: 100%; overflow: hidden; margin: 10px auto; }
+          
           strong, b { font-weight: bold; }
-          h1, h2, h3, h4, h5, h6, .q-heading { page-break-after: avoid; break-after: avoid; page-break-inside: avoid; break-inside: avoid; }
-          p, li { orphans: 2; widows: 2; }
-          img, table, tr, figure, .avoid-break { page-break-inside: avoid; break-inside: avoid; }
-          hr { border: 0; border-top: 1px solid #ccc; margin: 15px 0; }
+
+          /* Strict Pagination Rules */
+          h1, h2, h3, h4, h5, h6, .q-heading {
+            page-break-after: avoid;
+            break-after: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+
+          p, li {
+            orphans: 2;
+            widows: 2;
+          }
+
+          img, table, tr, figure, .avoid-break {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+
+          /* Table Formatting */
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12pt 0;
+            font-family: 'Times New Roman', serif;
+            font-size: 12pt;
+          }
+          th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+          }
+          th {
+            background-color: #fff;
+            font-weight: bold;
+          }
+
+          /* Images */
+          img {
+            max-width: 90%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+          }
+          figcaption, .img-caption {
+            font-size: 10pt;
+            font-style: italic;
+            text-align: center;
+            margin-top: 4pt;
+          }
+
+          /* Layout Container */
+          .document-container {
+            padding: 0;
+          }
+
+          @page {
+            size: A4;
+            margin: 35mm 15mm 35mm 15mm;
+          }
         </style>
       </head>
       <body>
-        <div style="padding: 20px 40px; max-width: 800px; margin: 0 auto;">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px;">
+          <h1 style="margin: 0; font-size: 24pt; font-family: 'Times New Roman', serif;">${inst || 'Assignment Report'}</h1>
+          <h2 style="margin: 5px 0 0 0; font-size: 16pt; font-weight: normal;">${dept ? dept + ' Department' : ''}</h2>
+        </div>
+        
+        <div class="document-container">
           ${htmlContent}
         </div>
+        
+        <!-- Footer -->
+        <div style="margin-top: 40px; text-align: center; font-size: 10pt; color: #666; border-top: 1px solid #ccc; padding-top: 10px; page-break-inside: avoid;">
+          Generated by AssignAI on ${new Date().toLocaleDateString()}
+        </div>
       </body>
-      </html>`;
+      </html>
+    `;
 
-      await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
-      pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '0.8in', right: '0.8in', bottom: '0.8in', left: '0.8in' }});
+      try {
+        await page.setContent(fullHtml, { waitUntil: 'networkidle2', timeout: 30000 });
+      } catch (e) {
+        console.warn("Puppeteer networkidle2 timed out, proceeding with PDF generation anyway...");
+      }
+
+      const headerTemplate = `
+        <div style="width: 100%; font-size: 11pt; font-family: 'Times New Roman', serif; padding: 8mm 18mm 5px 25mm; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #8b0000; box-sizing: border-box;">
+          <div style="color: #000;">Academic year - 2025-26</div>
+          <div style="color: #000;">${reportSubject || ''}</div>
+        </div>
+      `;
+
+      const footerTemplate = `
+        <div style="width: 100%; font-size: 11pt; font-family: 'Times New Roman', serif; padding: 3px 18mm 4mm 25mm; display: flex; justify-content: space-between; align-items: flex-start; border-top: 1.5px solid #8b0000; box-sizing: border-box;">
+          <div style="color: #000;">Dept of ${dept || ''}, ${inst || ''}</div>
+          <div style="color: #000;">Page <span class="pageNumber"></span></div>
+        </div>
+      `;
+
+      pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        margin: {
+          top: '15mm',
+          right: '18mm',
+          bottom: '15mm',
+          left: '25mm'
+        }
+      });
     } catch (err) {
       console.error("Internal PDF Gen Error:", err);
       return NextResponse.json({ error: "Internal PDF Generation failed" }, { status: 500 });
@@ -138,13 +265,19 @@ export async function POST(request) {
                       <p style="margin: 0 0 25px 0; color: #cbd5e1; font-size: 16px; line-height: 1.7;">
                         ${text || 'Please find your meticulously formatted, university-grade academic report attached as a PDF.'}
                       </p>
-                      
-                      <!-- Info Box -->
-                      <div style="background-color: #0f172a; border-left: 4px solid #10b981; padding: 20px; margin-bottom: 35px; border-radius: 0 8px 8px 0;">
-                        <p style="margin: 0; color: #f8fafc; font-size: 15px; line-height: 1.6;">
-                          <strong style="color: #10b981;">✓ High-Quality PDF Output</strong><br>
-                          Your report has been paginated and styled using our advanced rendering engine.
-                        </p>
+
+                      <div style="background-color: #0f172a; padding: 25px; border-radius: 12px; border: 1px solid #334155;">
+                        <h3 style="margin: 0 0 15px 0; color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Attachment Details</h3>
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td style="padding-bottom: 10px; color: #94a3b8; width: 100px;">File Name:</td>
+                            <td style="padding-bottom: 10px; color: #f8fafc; font-weight: 600;">${filename || 'AssignAI_Report.pdf'}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #94a3b8;">Format:</td>
+                            <td style="color: #f8fafc; font-weight: 600;">PDF Document</td>
+                          </tr>
+                        </table>
                       </div>
 
                       <hr style="border: none; border-top: 1px solid #334155; margin: 30px 0;" />

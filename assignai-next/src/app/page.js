@@ -896,7 +896,10 @@ ${rawMarkdown}`;
         subject: `Assignment Report: ${form.subject}`, 
         text: `Your AI-generated report for "${form.title}" is attached.`, 
         htmlContent: clone.outerHTML, 
-        filename: `Report_${(form.subject || 'Assignment').replace(/\s+/g, '_')}.pdf` 
+        filename: `Report_${(form.subject || 'Assignment').replace(/\s+/g, '_')}.pdf`,
+        dept: form.dept,
+        inst: form.inst,
+        reportSubject: form.subject
       };
 
       const res = await fetch('/api/email', {
