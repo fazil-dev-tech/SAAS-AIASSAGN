@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 export async function POST(request) {
   try {
@@ -11,10 +12,15 @@ export async function POST(request) {
 
     let browser;
     try {
-      // Launch headless Chromium
+      const isLocal = process.env.NODE_ENV === 'development';
+      
       browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: isLocal ? ['--no-sandbox', '--disable-setuid-sandbox'] : chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: isLocal 
+          ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
+          : await chromium.executablePath(),
+        headless: isLocal ? true : chromium.headless,
       });
 
       const page = await browser.newPage();

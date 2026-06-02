@@ -849,6 +849,7 @@ ${rawMarkdown}`;
     } catch (e) {
       console.error(e);
       toast('PDF generation failed: ' + e.message, 'error');
+      if (returnBlob) throw e;
     } finally {
       const el = document.getElementById('report-preview-content');
       if (el) el.classList.remove('pdf-export-mode');
@@ -882,6 +883,8 @@ ${rawMarkdown}`;
     toast('Generating PDF for email attachment...', 'info');
     try {
       const blob = await exportPdf(true);
+      if (!blob) throw new Error("Could not generate PDF Blob.");
+      
       const reader = new FileReader();
       const base64 = await new Promise((resolve, reject) => {
         reader.onload = () => resolve(reader.result);
