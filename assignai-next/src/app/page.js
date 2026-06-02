@@ -506,8 +506,8 @@ ${rawText.substring(0, 8000)}`;
         try {
           if (!window.pdfjsLib) {
             toast('Loading PDF Engine...', 'info');
-            const pdfjsLib = await import('pdfjs-dist');
-            pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+            const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.min.mjs');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).toString();
             window.pdfjsLib = pdfjsLib;
           }
           const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise;
