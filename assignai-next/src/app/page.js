@@ -843,12 +843,7 @@ ${rawMarkdown}`;
         pdfBlobRef.current = blob;
         return blob;
       } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Report_${form.subject}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
+        saveAs(blob, `Report_${(form.subject || 'Assignment').replace(/\s+/g, '_')}.pdf`);
         toast('PDF downloaded!', 'success');
       }
     } catch (e) {
