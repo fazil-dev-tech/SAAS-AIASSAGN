@@ -205,7 +205,7 @@ export default function Home() {
   };
 
   const adminLogin = () => {
-    if (authEmail === 'mohamedfazilpasha156@gmail.com' && authPassword === 'Adil123#') {
+    if (authEmail === 'mohamedfazilpasha156@gmail.com' && authPassword === 'TGVINCENZO') {
       const adminUser = { email: 'mohamedfazilpasha156@gmail.com', id: 'admin-super' };
       setUser(adminUser);
       localStorage.setItem('assignai_user', JSON.stringify(adminUser));
