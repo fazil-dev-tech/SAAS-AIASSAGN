@@ -136,8 +136,12 @@ export async function POST(request) {
       </html>
     `;
 
-    // Set content and wait for network (like webfonts) to load
-    await page.setContent(fullHtml, { waitUntil: 'networkidle2', timeout: 60000 });
+    // Set content and wait for network (like webfonts/images) to load
+    try {
+      await page.setContent(fullHtml, { waitUntil: 'networkidle2', timeout: 30000 });
+    } catch (e) {
+      console.warn("Puppeteer networkidle2 timed out, proceeding with PDF generation anyway...");
+    }
 
     const headerTemplate = `
       <div style="width: 100%; font-size: 11pt; font-family: 'Times New Roman', serif; padding: 8mm 18mm 5px 25mm; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #8b0000; box-sizing: border-box;">
@@ -163,7 +167,7 @@ export async function POST(request) {
       margin: {
         top: '15mm',
         right: '18mm',
-        bottom: '10mm',
+        bottom: '15mm',
         left: '25mm'
       }
     });
