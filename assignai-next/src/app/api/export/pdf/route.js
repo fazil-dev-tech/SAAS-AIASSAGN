@@ -9,23 +9,23 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing HTML content" }, { status: 400 });
     }
 
-    // Launch headless Chromium
-    const browser = await puppeteer.launch({
-      headless: "new",
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    let browser;
+    try {
+      // Launch headless Chromium
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
 
-    const page = await browser.newPage();
+      const page = await browser.newPage();
 
-    // Wrap the raw report HTML in a proper document structure with print CSS
-    const fullHtml = `
+      // Wrap the raw report HTML in a proper document structure with print CSS
+      const fullHtml = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
-          
           body, html {
             font-family: 'Times New Roman', Cambria, Georgia, serif;
             margin: 0;
@@ -168,16 +168,20 @@ export async function POST(request) {
       }
     });
 
-    await browser.close();
+      // Return the PDF buffer directly
+      return new NextResponse(pdfBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="Report_${subject ? subject.replace(/[^a-zA-Z0-9]/g, '_') : 'Document'}.pdf"`
+        }
+      });
 
-    // Return the PDF buffer directly
-    return new NextResponse(pdfBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Report_${subject ? subject.replace(/[^a-zA-Z0-9]/g, '_') : 'Document'}.pdf"`
+    } finally {
+      if (browser) {
+        await browser.close();
       }
-    });
+    }
 
   } catch (error) {
     console.error("PDF Generation Error:", error);
