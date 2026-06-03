@@ -707,15 +707,13 @@ CRITICAL: DO NOT generate any image placeholders, markdown images (![alt](url)),
 
 CRITICAL RULES:
 1. ONLY output raw HTML. No \`\`\`html markdown blocks.
-2. The output MUST begin with the question heading formatted exactly like this: <h2 class="q-heading avoid-break">Q${seqNum}. ${q.text}</h2>
-3. Convert all markdown sections (Introduction, Main Explanation, etc) into <h4 class="avoid-break"> tags.
-4. Convert text into <p> tags. Wrap lists in <ul> or <ol> with <li>.
-5. ALL TEXT MUST BE BLACK. Do NOT use colored backgrounds, colored borders, or colored text. Use <strong> for emphasis instead of colors.
-6. REMOVE and IGNORE any markdown images or HTML <img> tags from the raw text. Do not render broken images.
-7. SCRUB THE TEXT: If the raw text contains "Academic year", "Biology for Engineers", "UNIT", "Page Preview", "Dept of", or any other UI/Header/Footer artifacts, you MUST DELETE THEM completely.
-8. The question MUST ONLY appear once, inside the <h2 class="q-heading avoid-break"> tag. Do not repeat the question as normal text.
-9. Ensure properly closed HTML tags.
-10. If you must generate a sketch, diagram, or table, keep it extremely COMPACT and professional. Do NOT generate massive, full-page ASCII art or oversized HTML structures.
+2. Convert all markdown sections (Introduction, Main Explanation, etc) into <h4 class="avoid-break"> tags.
+3. Convert text into <p> tags. Wrap lists in <ul> or <ol> with <li>.
+4. ALL TEXT MUST BE BLACK. Do NOT use colored backgrounds, colored borders, or colored text. Use <strong> for emphasis instead of colors.
+5. REMOVE and IGNORE any markdown images or HTML <img> tags from the raw text. Do not render broken images.
+6. SCRUB THE TEXT: If the raw text contains "Academic year", "Biology for Engineers", "UNIT", "Page Preview", "Dept of", or any other UI/Header/Footer artifacts, you MUST DELETE THEM completely.
+7. Ensure properly closed HTML tags.
+8. If you must generate a sketch, diagram, or table, keep it extremely COMPACT and professional. Do NOT generate massive, full-page ASCII art or oversized HTML structures.
 
 Raw Text:
 ${rawMarkdown}`;
@@ -733,7 +731,7 @@ ${rawMarkdown}`;
             currentText = String(currentText).replace(/```html/gi, '').replace(/```/g, '').trim();
             
             if (currentText.length > 50) {
-              answerText = currentText;
+              answerText = `<h2 class="q-heading avoid-break">Q${seqNum}. ${q.text}</h2>\n` + currentText;
               success = true;
             } else {
               throw new Error("Answer too short or blank");
