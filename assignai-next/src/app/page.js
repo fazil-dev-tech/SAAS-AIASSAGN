@@ -390,7 +390,7 @@ Requirements:
                const imgResult = await puter.ai.txt2img(`Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}`, { model: 'google/imagen-4.0' });
                if (imgResult) {
                  const imgSrc = await extractImageBase64(imgResult);
-                 if (imgSrc) diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:90%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
+                 if (imgSrc) diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:400px;width:100%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
                }
              } catch (e) { console.log('Image generation failed', e); }
            }
@@ -757,7 +757,7 @@ ${rawMarkdown}`;
             const imgResult = await puter.ai.txt2img(`Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}`, { model: 'google/imagen-4.0' });
             if (imgResult) {
               const imgSrc = await extractImageBase64(imgResult);
-              if (imgSrc) diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:90%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
+              if (imgSrc) diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:400px;width:100%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
             }
             setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: `🎨 Diagram generated for Q${seqNum}`, status: 'done' }; return c; });
           } catch (e) {
