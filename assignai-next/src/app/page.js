@@ -258,7 +258,7 @@ export default function Home() {
   const INITIAL_FORM = {
     title: '', subject: 'Biology for Engineers', course: '', dept: 'ISE',
     inst: 'Siddaganga Institute of Technology, Tumakuru',
-    contentLength: 'Detailed',
+    contentLength: 'Medium',
     students: [{ name: '', roll: '' }],
   };
   const [form, setForm] = useState(INITIAL_FORM);
@@ -778,20 +778,29 @@ ${rawMarkdown}`;
         const finalSubject = studentNames ? `${form.subject} | Student: ${studentNames}` : form.subject;
         const userId = user?.email || user?.id || 'guest';
 
-        // Use client-side Supabase to save (works without service role key)
+        // Strip Base64 images from history to prevent massive payload sizes and DB limits
+        const lightweightAnswers = answers.map(a => ({
+          ...a,
+          answerHTML: (a.answerHTML || '').replace(/<img[^>]+src="data:image\/[^">]+"[^>]*>/g, '<div class="img-placeholder">[Image Archived]</div>')
+        }));
+
+        // Use client-side Supabase to save (works without service role key if RLS is configured)
         if (sb) {
           const { error: dbErr } = await sb.from('reports').insert([{
             user_id: userId,
             assignment_title: form.title,
             subject: finalSubject,
-            html_content: JSON.stringify(answers),
+            html_content: JSON.stringify(lightweightAnswers),
             word_count: wordCount
           }]);
           if (dbErr) throw dbErr;
         }
 
         setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: '💾 Report archived!', status: 'done' }; return c; });
-      } catch(e) { console.error('DB save error:', e); setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: '💾 DB save skipped', status: 'error' }; return c; }); }
+      } catch(e) { 
+        console.error('DB save error:', e); 
+        setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: '⚠️ DB save skipped (RLS/Size Limit)', status: 'error' }; return c; }); 
+      }
 
       setGenProgress(100);
       setReport({ reportData: form, answers });
