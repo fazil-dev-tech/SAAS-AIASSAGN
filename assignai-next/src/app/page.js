@@ -476,7 +476,7 @@ ${rawText.substring(0, 8000)}`;
         return true;
       }
     } catch (err) {
-      console.error('AI parse error:', err);
+      console.warn('AI parse error:', err?.message || JSON.stringify(err));
       toast('AI Parsing failed, falling back to simple extraction.', 'error');
     }
     return false;
@@ -1684,7 +1684,7 @@ ${rawMarkdown}`;
       </div>
     )}
     
-    {isMounted && (
+    {isMounted && !!user && (
       <GuideBot 
         onNavigate={(v) => setView(v)} 
         onScanner={() => setShowScannerModal(true)} 

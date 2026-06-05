@@ -56,7 +56,7 @@ function htmlToDocxParagraphs(html) {
       if (node.nodeType === 3) {
         let text = node.text;
         text = text.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-        if (text) paragraphs.push(new Paragraph({ children: [new TextRun({ text, size: 24, font: 'Times New Roman', color: '000000' })] }));
+        if (text) paragraphs.push(new Paragraph({ children: [new TextRun({ text, size: 24, font: 'Times New Roman', color: '000000' })], widowControl: true }));
         continue;
       }
 
@@ -70,7 +70,8 @@ function htmlToDocxParagraphs(html) {
           heading: level, 
           spacing: { before: 200, after: 100 },
           keepNext: true,
-          keepLines: true
+          keepLines: true,
+          widowControl: true
         }));
       } else if (tag === 'ul' || tag === 'ol') {
         const items = node.querySelectorAll('li');
@@ -85,12 +86,13 @@ function htmlToDocxParagraphs(html) {
             children: runs,
             spacing: { after: 60 },
             indent: { left: 720 },
-            alignment: AlignmentType.JUSTIFIED
+            alignment: AlignmentType.JUSTIFIED,
+            widowControl: true
           }));
         });
       } else if (tag === 'p') {
         const runs = parseTextRuns(node);
-        if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs, spacing: { after: 120 }, alignment: AlignmentType.JUSTIFIED }));
+        if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs, spacing: { after: 120 }, alignment: AlignmentType.JUSTIFIED, widowControl: true }));
       } else if (tag === 'img') {
         const src = node.getAttribute('src');
         if (src && src.startsWith('data:image')) {
@@ -112,10 +114,10 @@ function htmlToDocxParagraphs(html) {
         processNodes(node.childNodes);
       } else if (tag === 'strong' || tag === 'b' || tag === 'em' || tag === 'i') {
         const runs = parseTextRuns(node);
-        if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs, spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
+        if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs, spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED, widowControl: true }));
       } else {
         const text = node.text?.trim() || '';
-        if (text) paragraphs.push(new Paragraph({ children: [new TextRun({ text, size: 24, font: 'Times New Roman', color: '000000' })], spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
+        if (text) paragraphs.push(new Paragraph({ children: [new TextRun({ text, size: 24, font: 'Times New Roman', color: '000000' })], spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED, widowControl: true }));
       }
     }
   }
@@ -243,8 +245,7 @@ export async function POST(request) {
                           children: [new Paragraph({
                             alignment: AlignmentType.RIGHT,
                             children: [
-                              new TextRun({ text: "Page " }),
-                              new TextRun({ children: [PageNumber.CURRENT] }),
+                              new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES] })
                             ]
                           })],
                           borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} }

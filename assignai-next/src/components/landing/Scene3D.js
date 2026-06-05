@@ -40,7 +40,7 @@ const getPremiumGlass = () => new THREE.MeshPhysicalMaterial({
 });
 
 // ── HERO SCENE (The Core) ──
-const HeroCore = () => {
+const HeroCore = ({ isMobile }) => {
   const groupRef = useRef();
   const ringRef = useRef();
 
@@ -57,21 +57,21 @@ const HeroCore = () => {
   });
 
   return (
-    <group ref={groupRef} position={[0, 0, 0]}>
+    <group ref={groupRef} position={[0, isMobile ? -2 : 0, 0]}>
       <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
         {/* Inner intricate geometry */}
-        <mesh scale={1.5}>
+        <mesh scale={isMobile ? 1.0 : 1.5}>
           <icosahedronGeometry args={[1, 1]} />
           <meshPhysicalMaterial color="#ffffff" wireframe transparent opacity={0.15} />
         </mesh>
         
         {/* Outer Premium Glass Shell */}
-        <mesh scale={1.8} material={getPremiumGlass()}>
+        <mesh scale={isMobile ? 1.2 : 1.8} material={getPremiumGlass()}>
           <icosahedronGeometry args={[1, 0]} />
         </mesh>
 
         {/* Floating Data Ring */}
-        <mesh ref={ringRef} scale={3.5}>
+        <mesh ref={ringRef} scale={isMobile ? 2.2 : 3.5}>
           <torusGeometry args={[1, 0.005, 16, 100]} />
           <meshBasicMaterial color="#a855f7" transparent opacity={0.5} />
         </mesh>
@@ -384,7 +384,7 @@ export default function Scene3D() {
         {/* Environment map for realistic glass reflections (studio lighting) */}
         <Environment preset="studio" />
 
-        <HeroCore />
+        <HeroCore isMobile={isMobile} />
         <ArchitectureNodes isMobile={isMobile} />
         
         {/* Deep Space Background Interactive Particles */}

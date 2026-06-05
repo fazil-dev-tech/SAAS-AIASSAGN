@@ -186,7 +186,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
             </div>
 
             {/* Stark, minimalist typography */}
-            <h1 style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 'clamp(3.5rem, 8vw, 8rem)', lineHeight: 1.05, marginBottom: '1.5rem', fontWeight: 800, letterSpacing: '-0.05em' }}>
+            <h1 style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 'clamp(3.5rem, 8vw, 8rem)', lineHeight: 1.15, marginBottom: '1.5rem', fontWeight: 800, letterSpacing: '-0.05em', textShadow: '0 4px 24px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,1)' }}>
               Academic Reports.<br />
               <span style={{ color: '#888' }}>Engineered.</span>
             </h1>
