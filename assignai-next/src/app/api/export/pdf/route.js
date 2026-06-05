@@ -1,25 +1,38 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
+import { z } from 'zod';
+
+const pdfSchema = z.object({
+  htmlContent: z.string().min(1, "HTML content is required"),
+  subject: z.string().optional(),
+  dept: z.string().optional(),
+  inst: z.string().optional()
+});
 
 export async function POST(request) {
   try {
-    const { htmlContent, subject, dept, inst } = await request.json();
-
-    if (!htmlContent) {
-      return NextResponse.json({ error: "Missing HTML content" }, { status: 400 });
+    const rawBody = await request.json();
+    const parsed = pdfSchema.safeParse(rawBody);
+    
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request payload", details: parsed.error.issues }, { status: 400 });
     }
+
+    const { htmlContent, subject, dept, inst } = parsed.data;
 
     let browser;
     try {
       const isLocal = process.env.NODE_ENV === 'development';
       
+      const executablePath = isLocal 
+          ? (process.env.CHROME_EXECUTABLE_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe')
+          : await chromium.executablePath();
+
       browser = await puppeteer.launch({
         args: isLocal ? ['--no-sandbox', '--disable-setuid-sandbox'] : chromium.args,
         defaultViewport: chromium.defaultViewport,
-        executablePath: isLocal 
-          ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
-          : await chromium.executablePath(),
+        executablePath,
         headless: isLocal ? true : chromium.headless,
       });
 

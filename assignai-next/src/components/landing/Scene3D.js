@@ -210,7 +210,9 @@ const DataPacket = ({ start, end, color, delay }) => {
 // ── INTERACTIVE PARTICLES (Mouse Repelling) ──
 const InteractiveParticles = ({ isMobile }) => {
   const count = isMobile ? 800 : 2500;
-  const [positions, originalPositions, colors] = useMemo(() => {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
     const p = new Float32Array(count * 3);
     const op = new Float32Array(count * 3);
     const c = new Float32Array(count * 3);
@@ -232,7 +234,7 @@ const InteractiveParticles = ({ isMobile }) => {
       c[i * 3 + 1] = color.g;
       c[i * 3 + 2] = color.b;
     }
-    return [p, op, c];
+    setTimeout(() => setData([p, op, c]), 0);
   }, [count]);
 
   const pointsRef = useRef();
@@ -240,7 +242,8 @@ const InteractiveParticles = ({ isMobile }) => {
   const vec = new THREE.Vector3();
 
   useFrame((state) => {
-    if (!pointsRef.current) return;
+    if (!pointsRef.current || !data) return;
+    const [positions, originalPositions] = data;
     const time = state.clock.elapsedTime;
     
     // Convert mouse to 3D world space (approximate projection)
@@ -276,13 +279,16 @@ const InteractiveParticles = ({ isMobile }) => {
     pointsRef.current.rotation.y = time * 0.02;
   });
 
+  if (!data) return null;
+  const [positions, originalPositions, colors] = data;
+
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+        <bufferAttribute attach="attributes-position" count={positions.length / 3} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-color" count={colors.length / 3} array={colors} itemSize={3} />
       </bufferGeometry>
-      <pointsMaterial size={0.08} vertexColors transparent opacity={0.6} sizeAttenuation />
+      <pointsMaterial size={isMobile ? 0.08 : 0.06} vertexColors transparent opacity={0.6} sizeAttenuation={true} />
     </points>
   );
 };
@@ -327,6 +333,25 @@ const CameraRig = ({ scroll, isMobile }) => {
   return null;
 };
 
+// ── POSTPROCESSING WRAPPER ──
+// Defers rendering to ensure WebGL context is fully initialized and prevents 'alpha' of null errors.
+const PostProcessing = ({ isMobile }) => {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 100);
+    return () => clearTimeout(t);
+  }, []);
+  
+  if (!ready) return null;
+  return (
+    <EffectComposer key={isMobile ? 'mobile' : 'desktop'} disableNormalPass multisampling={isMobile ? 0 : 4}>
+      <Bloom luminanceThreshold={0.5} mipmapBlur intensity={1.2} radius={0.5} />
+      <Noise opacity={0.03} />
+      <Vignette eskil={false} offset={0.1} darkness={1.1} />
+    </EffectComposer>
+  );
+};
+
 // ── MAIN SCENE EXPORT ──
 export default function Scene3D() {
   const [mounted, setMounted] = useState(false);
@@ -334,11 +359,12 @@ export default function Scene3D() {
   const scroll = useScrollPos();
 
   useEffect(() => {
-    setMounted(true);
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    let active = true;
+    const checkMobile = () => { if (active) setIsMobile(window.innerWidth < 768); };
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    setTimeout(() => { if (active) setMounted(true); }, 0);
+    return () => { active = false; window.removeEventListener('resize', checkMobile); };
   }, []);
 
   if (!mounted) return null;
@@ -367,11 +393,7 @@ export default function Scene3D() {
         <CameraRig scroll={scroll} isMobile={isMobile} />
 
         {/* Minimal, professional post-processing */}
-        <EffectComposer key={isMobile ? 'mobile' : 'desktop'} disableNormalPass multisampling={isMobile ? 0 : 4}>
-          <Bloom luminanceThreshold={0.5} mipmapBlur intensity={1.2} radius={0.5} />
-          <Noise opacity={0.03} />
-          <Vignette eskil={false} offset={0.1} darkness={1.1} />
-        </EffectComposer>
+        <PostProcessing isMobile={isMobile} />
       </Canvas>
     </div>
   );

@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, HeadingLevel, Header, Footer, PageNumber, ImageRun } from 'docx';
 import { parse } from 'node-html-parser';
+import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
+
+const docxSchema = z.object({
+  reportData: z.object({
+    subject: z.string().optional(),
+    dept: z.string().optional(),
+    inst: z.string().optional()
+  }).catch({}),
+  answers: z.array(z.any()).optional().default([])
+});
 
 /* ── Convert HTML string to an array of docx Paragraph objects ── */
 function htmlToDocxParagraphs(html) {
@@ -96,7 +106,14 @@ function htmlToDocxParagraphs(html) {
 
 export async function POST(request) {
   try {
-    const { reportData, answers } = await request.json();
+    const rawBody = await request.json();
+    const parsed = docxSchema.safeParse(rawBody);
+    
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request payload", details: parsed.error.issues }, { status: 400 });
+    }
+
+    const { reportData, answers } = parsed.data;
 
     const doc = new Document({
       styles: {
@@ -207,7 +224,7 @@ export async function POST(request) {
                             alignment: AlignmentType.RIGHT,
                             children: [
                               new TextRun({ text: "Page " }),
-                              new PageNumber(),
+                              PageNumber.CURRENT,
                             ]
                           })],
                           borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} }

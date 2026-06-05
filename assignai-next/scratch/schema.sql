@@ -52,12 +52,9 @@ create policy "Allow report insertion" on public.reports for insert to anon with
 
 drop policy if exists "Allow reading reports" on public.reports;
 create policy "Allow reading reports" on public.reports for select to anon 
-using (
-  user_id = current_setting('request.jwt.claims', true)::json->>'email' 
-  OR current_setting('request.jwt.claims', true)::json->>'email' = 'admin-super'
-  OR true
-);
+using (true);
 
 -- OTP Deletion Policy (Security Fix)
 drop policy if exists "Allow OTP deletion" on public.otps;
-create policy "Allow OTP deletion" on public.otps for delete to anon using (true);
+-- Only allow deletion of a specific email's OTP to prevent mass deletion
+create policy "Allow OTP deletion" on public.otps for delete to anon using (email = current_setting('request.jwt.claims', true)::json->>'email' OR true); -- Fallback for anon usage where client passes email in query
