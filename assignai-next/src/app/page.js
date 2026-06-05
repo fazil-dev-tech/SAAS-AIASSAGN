@@ -23,6 +23,31 @@ async function loadPuter() {
   return window.puter;
 }
 
+async function askAI(prompt) {
+  try {
+    const res = await fetch('/api/nvidia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.text) return data.text;
+    }
+    console.warn('NVIDIA API failed or returned no text, falling back to Puter.js...');
+  } catch (err) {
+    console.error('NVIDIA fetch error:', err);
+  }
+  
+  // Fallback to Puter.js
+  const puter = await loadPuter();
+  const response = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
+  if (typeof response === 'string') return response;
+  if (Array.isArray(response?.message?.content)) return response.message.content.map(c => c.text || '').join('\n');
+  if (typeof response?.message?.content === 'string') return response.message.content;
+  return response?.text || '';
+}
+
 const extractImageBase64 = async (imgResult) => {
   if (!imgResult) return '';
   if (typeof imgResult === 'string') return imgResult;
@@ -247,20 +272,71 @@ export default function Home() {
     title: '', subject: 'Biology for Engineers', course: '', dept: 'ISE',
     inst: 'Siddaganga Institute of Technology, Tumakuru',
     contentLength: 'Medium',
+    customInstructions: '',
     students: [{ name: '', roll: '' }],
+    headerLeft: 'Academic year - 2025-26',
+    headerRight: '',
+    footerLeft: '',
+    footerRight: 'Page <span class="pageNumber"></span>'
   };
   const [form, setForm] = useState(INITIAL_FORM);
+  const [magicTopic, setMagicTopic] = useState('');
+  const [isMagicLoading, setIsMagicLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractStatus, setExtractStatus] = useState('');
   const [extractedQuestions, setExtractedQuestions] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState(0);
+  const [showQNums, setShowQNums] = useState(true);
+  const [showUnits, setShowUnits] = useState(true);
+  const [docConfig, setDocConfig] = useState({
+    marginTop: 35,
+    marginBottom: 35,
+    marginLeft: 15,
+    marginRight: 15,
+    fontSize: 12
+  });
+
+  const handleMagicFill = async () => {
+    if (!magicTopic.trim()) { toast('Please enter a topic first!', 'error'); return; }
+    setIsMagicLoading(true);
+    try {
+      const prompt = `Based on the loose topic "${magicTopic}", deduce the likely academic metadata for a college report. 
+Return ONLY a valid JSON object (no markdown) with these exact keys: "title", "subject", "course", "dept".
+For example, for "operating systems memory paging", title might be "Memory Paging and Virtual Memory", subject: "Operating Systems", course: "OS101", dept: "CSE". Make the guesses realistic.`;
+      
+      const jsonText = await askAI(prompt);
+      const cleanJson = jsonText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanJson);
+      
+      setForm(prev => ({
+        ...prev,
+        title: parsed.title || prev.title,
+        subject: parsed.subject || prev.subject,
+        course: parsed.course || prev.course,
+        dept: parsed.dept || prev.dept
+      }));
+      toast('✨ Magic Fill Successful!', 'success');
+      setMagicTopic('');
+    } catch (err) {
+      console.error(err);
+      toast('Magic Fill failed, please try again.', 'error');
+    } finally {
+      setIsMagicLoading(false);
+    }
+  };
   const [genLogs, setGenLogs] = useState([]);
   const [report, setReport] = useState(null);
 
   /* ── LOCALSTORAGE AUTO-SAVE ── */
   useEffect(() => {
     const saved = localStorage.getItem('assignai-form');
-    if (saved) { try { setForm(JSON.parse(saved)); } catch {} }
+    if (saved) { 
+      try { 
+        setForm({ ...INITIAL_FORM, ...JSON.parse(saved) }); 
+      } catch {} 
+    }
   }, []);
   useEffect(() => {
     if (form.title || form.subject) localStorage.setItem('assignai-form', JSON.stringify(form));
@@ -341,14 +417,7 @@ Requirements:
            let success = false;
            while (attempts < 3 && !success) {
              try {
-               const resp = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
-               let currentRaw = '';
-               if (typeof resp === 'string') currentRaw = resp;
-               else if (Array.isArray(resp?.message?.content)) currentRaw = resp.message.content.map(c => c.text || '').join('\n');
-               else if (typeof resp?.message?.content === 'string') currentRaw = resp.message.content;
-               else if (resp?.text) currentRaw = resp.text;
-               else if (resp && typeof resp.toString === 'function' && resp.toString() !== '[object Object]') currentRaw = resp.toString();
-               else currentRaw = JSON.stringify(resp) || '';
+               let currentRaw = await askAI(prompt);
 
                currentRaw = String(currentRaw).replace(/```html/gi, '').replace(/```/g, '').trim();
                if (currentRaw.length > 50) {
@@ -434,43 +503,25 @@ Requirements:
     toast('🤖 AI is perfectly structuring the document...', 'info');
     try {
       const puter = await loadPuter();
-      const prompt = `You are a strict document parser. I will provide raw text extracted from an assignment document. Extract all the questions and their associated Units/Modules/Chapters. Fix any OCR typos.
+      const prompt = `You are an advanced NLP Document Parser. I will provide raw text extracted from a college question paper. 
+Your task is to accurately extract ALL questions.
+CRITICAL RULES:
+1. Extract EVERY single question. Do not limit the count.
+2. IGNORE headers, footers, college names, university names, course codes, maximum marks, duration, and instructions.
+3. JOIN multi-line questions. If a single question spans multiple lines in the raw text, merge it into a single continuous string. DO NOT split one question into multiple items.
+4. Fix grammar and OCR typos in the questions.
 Return ONLY a valid JSON array of objects. Do not wrap it in markdown. Do not add any text before or after.
 Format: [{"unit": "Unit Name", "num": 1, "text": "Question text..."}]
 
 Raw Text:
 ${rawText.substring(0, 8000)}`;
 
-      const response = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
-      let jsonText = '';
-      if (typeof response === 'string') jsonText = response;
-      else if (Array.isArray(response?.message?.content)) jsonText = response.message.content.map(c => c.text || '').join('\n');
-      else if (typeof response?.message?.content === 'string') jsonText = response.message.content;
-      else jsonText = response?.text || '';
+      let jsonText = await askAI(prompt);
       
       jsonText = jsonText.replace(/```json/gi, '').replace(/```/g, '').trim();
       let parsed = JSON.parse(jsonText);
       
       if (Array.isArray(parsed) && parsed.length > 0) {
-        
-        // Randomly select 5 questions per unit if there are multiple units (Unit-wise doc)
-        const units = [...new Set(parsed.map(q => q.unit))];
-        if (units.length > 1) {
-           let limitedQuestions = [];
-           units.forEach(u => {
-              const unitQs = parsed.filter(q => q.unit === u);
-              // Shuffle array to randomize selection
-              const shuffled = unitQs.sort(() => 0.5 - Math.random());
-              limitedQuestions.push(...shuffled.slice(0, 5));
-           });
-           // Re-sort back to original logical order
-           parsed = limitedQuestions.sort((a, b) => {
-              if (a.unit === b.unit) return a.num - b.num;
-              return units.indexOf(a.unit) - units.indexOf(b.unit);
-           });
-           toast('Automatically selected 5 random questions per unit.', 'info');
-        }
-
         setExtractedQuestions(parsed);
         toast(`✨ AI perfectly extracted ${parsed.length} questions!`, 'success');
         return true;
@@ -487,12 +538,15 @@ ${rawText.substring(0, 8000)}`;
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadedFile(file);
+    setIsExtracting(true);
+    setExtractStatus('Reading file structure...');
 
     if (file.type === 'application/pdf') {
       const reader = new FileReader();
       reader.onload = async (ev) => {
         try {
           if (!window.pdfjsLib) {
+            setExtractStatus('Loading PDF Engine...');
             toast('Loading PDF Engine...', 'info');
             const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.min.mjs');
             pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).toString();
@@ -529,6 +583,7 @@ ${rawText.substring(0, 8000)}`;
           let rawText = extractedLines.filter(l => l.length > 0).join('\n');
           
           if (rawText.length < 50) { // Likely Scanned PDF
+            setExtractStatus('Running AI Vision OCR on scanned PDF...');
             toast('Running AI Vision OCR on scanned PDF...', 'info');
             if (!window.Tesseract) {
               window.Tesseract = await import('tesseract.js');
@@ -548,6 +603,7 @@ ${rawText.substring(0, 8000)}`;
           }
 
           // Use AI to perfectly parse the raw text
+          setExtractStatus('Parsing questions with AI...');
           const success = await parseQuestionsWithAI(rawText);
           if (!success) {
              // Fallback
@@ -557,9 +613,11 @@ ${rawText.substring(0, 8000)}`;
           }
 
         } catch (err) { toast('PDF parse failed: ' + err.message, 'error'); }
+        finally { setIsExtracting(false); }
       };
       reader.readAsArrayBuffer(file);
     } else if (file.type.startsWith('image/')) {
+      setExtractStatus('Running AI Vision OCR on image...');
       toast('Running AI Vision OCR on image...', 'info');
       try {
         if (!window.Tesseract) {
@@ -574,16 +632,18 @@ ${rawText.substring(0, 8000)}`;
         }
       } catch (e) {
         toast('Failed to read text from image.', 'error');
-      }
+      } finally { setIsExtracting(false); }
     } else {
       const reader = new FileReader();
       reader.onload = async (ev) => {
+        setExtractStatus('Parsing questions with AI...');
         const success = await parseQuestionsWithAI(ev.target.result);
         if (!success) {
           const lines = ev.target.result.split('\n').filter(l => l.trim().length > 5);
           setExtractedQuestions(lines.map((l, i) => ({ unit: 'Unit 1', num: i + 1, text: l.trim() })));
           toast(`Loaded ${lines.length} questions using fallback.`, 'success');
         }
+        setIsExtracting(false);
       };
       reader.readAsText(file);
     }
@@ -593,12 +653,12 @@ ${rawText.substring(0, 8000)}`;
   const handleGenerate = async () => {
     if (extractedQuestions.length === 0) { toast('No questions!', 'error'); return; }
     setGenerating(true); setGenProgress(0);
-    setGenLogs([{ text: '🔄 Initializing Puter AI Engine...', status: 'active' }]);
+    setGenLogs([{ text: '🔄 Initializing AssignAI Neural Engine...', status: 'active' }]);
 
     try {
-      // 1. Load Puter
+      // 1. Load Fallbacks (Puter)
       const puter = await loadPuter();
-      setGenLogs(l => [{ text: '✅ Puter AI Engine loaded', status: 'done' }, ...l.slice(1)]);
+      setGenLogs(l => [{ text: '✅ AssignAI Neural Engine loaded', status: 'done' }, ...l.slice(1)]);
 
       // 2. Wikipedia grounding
       setGenLogs(l => [...l, { text: '📚 Fetching Wikipedia context...', status: 'active' }]);
@@ -645,6 +705,7 @@ Variation seed: ${seed}
 Question: ${q.text}
 Factual context: ${context || 'Use your knowledge.'}
 
+${form.customInstructions ? `USER SPECIFIC MAGIC INSTRUCTIONS (CRITICAL PRIORITY):\n${form.customInstructions}\n` : ''}
 CRITICAL STRUCTURE RULES:
 You MUST structure your answer with these exact sections (use Markdown ## headings):
 1. Introduction
@@ -676,15 +737,7 @@ CRITICAL: DO NOT generate any image placeholders, markdown images (![alt](url)),
             setGenLogs(l => { const c = [...l]; const idx = c.findLastIndex(x => x.text.startsWith(`✨ Q${seqNum}`)); if (idx >= 0) c[idx] = { text: `✨ Q${seqNum}: Pass 1 (Researching)...`, status: 'active' }; return c; });
             
             // Pass 1 Call
-            const pass1Resp = await puter.ai.chat(contentPrompt, { model: 'gpt-4o-mini' });
-            if (total > 5) await new Promise(r => setTimeout(r, 800)); 
-            
-            let rawMarkdown = '';
-            if (typeof pass1Resp === 'string') rawMarkdown = pass1Resp;
-            else if (Array.isArray(pass1Resp?.message?.content)) rawMarkdown = pass1Resp.message.content.map(c => c.text || '').join('\n');
-            else if (typeof pass1Resp?.message?.content === 'string') rawMarkdown = pass1Resp.message.content;
-            else if (pass1Resp?.text) rawMarkdown = pass1Resp.text;
-            else rawMarkdown = JSON.stringify(pass1Resp) || '';
+            let rawMarkdown = await askAI(contentPrompt);
 
             if (rawMarkdown.length < 50) throw new Error("Pass 1: Content too short");
 
@@ -706,20 +759,15 @@ CRITICAL RULES:
 Raw Text:
 ${rawMarkdown}`;
 
-            const response = await puter.ai.chat(formatPrompt, { model: 'gpt-4o-mini' });
-            
-            let currentText = '';
-            if (typeof response === 'string') currentText = response;
-            else if (Array.isArray(response?.message?.content)) currentText = response.message.content.map(c => c.text || '').join('\n');
-            else if (typeof response?.message?.content === 'string') currentText = response.message.content;
-            else if (response?.text) currentText = response.text;
-            else if (response && typeof response.toString === 'function' && response.toString() !== '[object Object]') currentText = response.toString();
-            else currentText = JSON.stringify(response) || '';
+            let currentText = await askAI(formatPrompt);
 
             currentText = String(currentText).replace(/```html/gi, '').replace(/```/g, '').trim();
             
             if (currentText.length > 50) {
-              answerText = `<h2 class="q-heading avoid-break">Q${seqNum}. ${q.text}</h2>\n` + currentText;
+              const isNewUnit = i === 0 || q.unit !== extractedQuestions[i - 1].unit;
+              const unitHeading = (showUnits && isNewUnit && q.unit) ? `<h1 class="unit-heading avoid-break" style="text-align:center; font-size: 20pt; margin-top: 30pt; margin-bottom: 15pt; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 5pt;">${q.unit}</h1>\n` : '';
+              const qPrefix = showQNums ? (q.num ? `Q${q.num}. ` : `Q${seqNum}. `) : '';
+              answerText = unitHeading + `<h2 class="q-heading avoid-break">${qPrefix}${q.text}</h2>\n` + currentText;
               success = true;
             } else {
               throw new Error("Answer too short or blank");
@@ -742,10 +790,50 @@ ${rawMarkdown}`;
         if (needsDiagram) {
           setGenLogs(l => [...l, { text: `🎨 Generating diagram for Q${seqNum}...`, status: 'active' }]);
           try {
-            const imgResult = await puter.ai.txt2img(`Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}`, { model: 'google/imagen-4.0' });
-            if (imgResult) {
-              const imgSrc = await extractImageBase64(imgResult);
-              if (imgSrc) diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:400px;width:100%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
+            // Try Free API first (Pollinations AI) to save Puter credits
+            let imgSrc = '';
+            try {
+               const prompt = `Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}`;
+               const encodedPrompt = encodeURIComponent(prompt);
+               const polyUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=600&height=400&nologo=true&seed=${Math.floor(Math.random() * 10000)}`;
+               
+               // Fetch it to base64 to ensure it loads properly and isn't blocked by the browser
+               const controller = new AbortController();
+               const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+               const res = await fetch(polyUrl, { signal: controller.signal });
+               clearTimeout(timeoutId);
+               
+               if (!res.ok) throw new Error('Pollinations returned ' + res.status);
+               const blob = await res.blob();
+               imgSrc = await new Promise((resolve) => {
+                 const reader = new FileReader();
+                 reader.onloadend = () => resolve(reader.result);
+                 reader.readAsDataURL(blob);
+               });
+            } catch(e) {
+               console.warn("Pollinations failed, falling back to Puter:", e.message);
+               // Fallback to Puter
+               const imgResult = await puter.ai.txt2img(`Professional academic style diagram for a college report. Subject: ${form.subject}. Topic: ${q.text}`, { model: 'google/imagen-4.0' });
+               const puterUrl = typeof imgResult === 'string' ? imgResult : (imgResult?.url || '');
+               
+               // Convert puter url to base64 as well if possible
+               if (puterUrl) {
+                 try {
+                   const res = await fetch(puterUrl);
+                   const blob = await res.blob();
+                   imgSrc = await new Promise((resolve) => {
+                     const reader = new FileReader();
+                     reader.onloadend = () => resolve(reader.result);
+                     reader.readAsDataURL(blob);
+                   });
+                 } catch(err) {
+                   imgSrc = puterUrl; // Fallback to raw URL
+                 }
+               }
+            }
+
+            if (imgSrc) {
+              diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:400px;width:100%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
             }
             setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: `🎨 Diagram generated for Q${seqNum}`, status: 'done' }; return c; });
           } catch (e) {
@@ -764,7 +852,7 @@ ${rawMarkdown}`;
       try {
         const studentNames = form.students.map(s => s.name).filter(Boolean).join(', ');
         const finalSubject = studentNames ? `${form.subject} | Student: ${studentNames}` : form.subject;
-        const userId = user?.email || user?.id || 'guest';
+        const userId = user?.id || null;
 
         // Strip Base64 images from history to prevent massive payload sizes and DB limits
         const lightweightAnswers = answers.map(a => ({
@@ -772,8 +860,8 @@ ${rawMarkdown}`;
           answerHTML: (a.answerHTML || '').replace(/<img[^>]+src="data:image\/[^">]+"[^>]*>/g, '<div class="img-placeholder">[Image Archived]</div>')
         }));
 
-        // Use client-side Supabase to save (works without service role key if RLS is configured)
-        if (sb) {
+        // Use client-side Supabase to save
+        if (sb && userId) {
           const { error: dbErr } = await sb.from('reports').insert([{
             user_id: userId,
             assignment_title: form.title,
@@ -782,11 +870,13 @@ ${rawMarkdown}`;
             word_count: wordCount
           }]);
           if (dbErr) throw dbErr;
+        } else if (sb && !userId) {
+          console.warn("Skipping DB save: User not authenticated or missing UUID.");
         }
 
         setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: '💾 Report archived!', status: 'done' }; return c; });
       } catch(e) { 
-        console.error('DB save error:', e); 
+        console.error("DB save error: ", JSON.stringify(e, null, 2) || e.message || e);
         setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: '⚠️ DB save skipped (RLS/Size Limit)', status: 'error' }; return c; }); 
       }
 
@@ -822,7 +912,12 @@ ${rawMarkdown}`;
         htmlContent: clone.outerHTML,
         subject: form.subject,
         dept: form.dept,
-        inst: form.inst
+        inst: form.inst,
+        headerLeft: form.headerLeft,
+        headerRight: form.headerRight,
+        footerLeft: form.footerLeft,
+        footerRight: form.footerRight,
+        docConfig: docConfig
       };
       
       const res = await fetch('/api/export/pdf', {
@@ -1057,7 +1152,7 @@ ${rawMarkdown}`;
               {[
                 { icon: '📊', label: 'Reports Generated', value: stats.reports, color: 'var(--accent)' },
                 { icon: '📝', label: 'Total Words', value: stats.words.toLocaleString(), color: 'var(--success)' },
-                { icon: '⚡', label: 'AI Engine', value: 'Puter', color: 'var(--warning)' },
+                { icon: '⚡', label: 'AI Engine', value: 'Neural Core', color: 'var(--warning)' },
                 { icon: '📧', label: 'Emails Sent', value: stats.emails, color: 'var(--accent2)' },
               ].map((s, i) => (
                 <div key={i} className="glass-card stat-card" style={{ padding: '1.5rem' }}>
@@ -1073,8 +1168,8 @@ ${rawMarkdown}`;
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
               <div className="glass-card" style={{ padding: '1.5rem', cursor: 'pointer' }} onClick={startWizard}>
                 <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📄</div>
-                <h4 style={{ marginBottom: '0.5rem' }}>New Assignment</h4>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Upload a question PDF and generate a full report with AI.</p>
+                <h4 style={{ marginBottom: '0.5rem' }}>Question Paper Solve Report</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Upload a question PDF and generate a full report via AI extraction.</p>
               </div>
               {user?.email === 'mohamedfazilpasha156@gmail.com' && (
                 <>
@@ -1177,6 +1272,30 @@ ${rawMarkdown}`;
                 <h2 style={{ marginBottom: '0.5rem' }}>Report Details</h2>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Fill in the academic metadata. <span className="mono" style={{ fontSize: '0.7rem' }}>Auto-saved to browser.</span></p>
 
+                {/* Magic Auto-Fill Section */}
+                <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'linear-gradient(145deg, rgba(236,72,153,0.1), rgba(168,85,247,0.05))', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(236,72,153,0.3)', boxShadow: '0 0 20px rgba(236,72,153,0.1)' }}>
+                  <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>✨ Magic Auto-Fill</h3>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>Enter a loose topic or assignment brief. AI will guess the Title, Subject, Course Code, and Dept.</p>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <input 
+                      className="form-control" 
+                      style={{ flex: 1, background: 'rgba(0,0,0,0.4)' }} 
+                      placeholder="e.g. Write a report on operating systems memory paging..." 
+                      value={magicTopic} 
+                      onChange={e => setMagicTopic(e.target.value)} 
+                      disabled={isMagicLoading}
+                    />
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={handleMagicFill} 
+                      disabled={isMagicLoading || !magicTopic.trim()}
+                      style={{ background: 'linear-gradient(90deg, #ec4899, #a855f7)', border: 'none', minWidth: '120px' }}
+                    >
+                      {isMagicLoading ? 'Thinking...' : 'Magic Fill'}
+                    </button>
+                  </div>
+                </div>
+
                 <div className="form-grid">
                   <div className="form-group col-span-2">
                     <label className="form-label">Assignment Title</label>
@@ -1184,29 +1303,43 @@ ${rawMarkdown}`;
                   </div>
                   <div className="form-group">
                     <label className="form-label">Subject</label>
-                    <input className="form-control" placeholder="e.g. Biology" value={form.subject} onChange={e => updateForm('subject', e.target.value)} />
+                    <input className="form-control" placeholder="e.g. Biology" value={form.subject || ''} onChange={e => updateForm('subject', e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Course Code</label>
-                    <input className="form-control" placeholder="e.g. 21CS33" value={form.course} onChange={e => updateForm('course', e.target.value)} />
+                    <input className="form-control" placeholder="e.g. 21CS33" value={form.course || ''} onChange={e => updateForm('course', e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Department</label>
-                    <select className="form-control" value={form.dept} onChange={e => updateForm('dept', e.target.value)}>
+                    <select className="form-control" value={form.dept || ''} onChange={e => updateForm('dept', e.target.value)}>
                       <option>ISE</option><option>CSE</option><option>ECE</option><option>MECH</option><option>CIVIL</option><option>EEE</option>
                     </select>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Institution</label>
-                    <input className="form-control" value={form.inst} onChange={e => updateForm('inst', e.target.value)} />
+                    <input className="form-control" value={form.inst || ''} onChange={e => updateForm('inst', e.target.value)} />
                   </div>
                   <div className="form-group col-span-2">
                     <label className="form-label">Content Detail Level</label>
-                    <select className="form-control" value={form.contentLength} onChange={e => updateForm('contentLength', e.target.value)}>
+                    <select className="form-control" value={form.contentLength || ''} onChange={e => updateForm('contentLength', e.target.value)}>
                       <option value="Detailed">Detailed (Max Length)</option>
                       <option value="Medium">Medium (Balanced)</option>
                       <option value="Short">Short (Concise)</option>
                     </select>
+                  </div>
+                  
+                  {/* Custom AI Instructions */}
+                  <div className="form-group col-span-2" style={{ marginTop: '1rem' }}>
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.2rem' }}>🧠</span> Custom AI Instructions <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 'normal', textTransform: 'none' }}>(Optional betterment rules)</span>
+                    </label>
+                    <textarea 
+                      className="form-control" 
+                      style={{ minHeight: '80px', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', resize: 'vertical' }}
+                      placeholder="e.g. Write in a formal Harvard academic style. Focus on 2024 real-world examples. Keep the language extremely simple." 
+                      value={form.customInstructions || ''} 
+                      onChange={e => updateForm('customInstructions', e.target.value)} 
+                    />
                   </div>
                 </div>
 
@@ -1215,6 +1348,26 @@ ${rawMarkdown}`;
                   <label htmlFor="includeImages" style={{ cursor: 'pointer', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
                     <strong>Generate AI Diagrams & Images</strong> <span style={{ color: 'var(--text-secondary)' }}>(when explicitly asked in a question)</span>
                   </label>
+                </div>
+
+                <h3 style={{ marginTop: '2rem', marginBottom: '1rem' }}>PDF Formatting Options (Optional)</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">Header Left</label>
+                    <input className="form-control" placeholder="e.g. Academic year - 2025-26" value={form.headerLeft || ''} onChange={e => updateForm('headerLeft', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Header Right</label>
+                    <input className="form-control" placeholder="Defaults to Subject" value={form.headerRight || ''} onChange={e => updateForm('headerRight', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Footer Left</label>
+                    <input className="form-control" placeholder="Defaults to Dept & Inst" value={form.footerLeft || ''} onChange={e => updateForm('footerLeft', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Footer Right</label>
+                    <input className="form-control" placeholder='e.g. Page <span class="pageNumber"></span>' value={form.footerRight || ''} onChange={e => updateForm('footerRight', e.target.value)} />
+                  </div>
                 </div>
 
                 <h3 style={{ marginTop: '2rem', marginBottom: '1rem' }}>Team Members</h3>
@@ -1248,12 +1401,20 @@ ${rawMarkdown}`;
                 <h2 style={{ marginBottom: '0.5rem' }}>Upload Question Paper</h2>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Upload a PDF or text file. Questions will be auto-extracted and you can edit them.</p>
 
-                <div className="upload-zone">
-                  <input type="file" accept=".pdf,.txt" onChange={handleFile} />
-                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
-                  <h3>Drop your file here</h3>
-                  <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>PDF, TXT supported &bull; Real PDF.js extraction</p>
-                </div>
+                {isExtracting ? (
+                  <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'rgba(0,0,0,0.4)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--accent)', marginBottom: '2rem' }}>
+                    <div className="spinner" style={{ width: '40px', height: '40px', border: '3px solid rgba(236,72,153,0.3)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
+                    <h3 style={{ color: '#fff', marginBottom: '0.5rem' }}>Processing Document</h3>
+                    <p style={{ color: 'var(--text-secondary)' }}>{extractStatus}</p>
+                  </div>
+                ) : (
+                  <div className="upload-zone">
+                    <input type="file" accept=".pdf,.txt" onChange={handleFile} />
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
+                    <h3>Drop your file here</h3>
+                    <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>PDF, TXT supported &bull; Real PDF.js extraction</p>
+                  </div>
+                )}
 
                 {uploadedFile && (
                   <div className="file-preview">
@@ -1268,10 +1429,22 @@ ${rawMarkdown}`;
 
                 {extractedQuestions.length > 0 && (
                   <div style={{ marginTop: '1.5rem' }}>
-                    <h4 style={{ marginBottom: '0.25rem' }}>Extracted Questions ({extractedQuestions.length})</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                      Please <strong style={{color: 'var(--accent)'}}>verify and edit the full questions</strong> before continuing, as OCR may make mistakes. Remove any unwanted questions.
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                      <div>
+                        <h4 style={{ marginBottom: '0.25rem' }}>Extracted Questions ({extractedQuestions.length})</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                          Please <strong style={{color: 'var(--accent)'}}>verify and edit</strong> before continuing.
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={showUnits} onChange={e => setShowUnits(e.target.checked)} /> Show Units
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={showQNums} onChange={e => setShowQNums(e.target.checked)} /> Show Q-Numbers
+                        </label>
+                      </div>
+                    </div>
                     <div className="q-editor" style={{ maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }}>
                       {extractedQuestions.map((q, i) => (
                         <div key={i} className="q-card" style={{ position: 'relative' }}>
@@ -1280,9 +1453,28 @@ ${rawMarkdown}`;
                             onClick={() => setExtractedQuestions(qs => qs.filter((_, idx) => idx !== i).map((item, index) => ({ ...item, num: index + 1 })))}
                             title="Remove Question"
                           >&times;</button>
-                          <div className="q-num">{i + 1}</div>
+                          {showQNums && (
+                            <div className="q-num" style={{ padding: 0, overflow: 'hidden' }}>
+                              <input 
+                                type="text" 
+                                value={q.num || ''} 
+                                onChange={e => { const u = [...extractedQuestions]; u[i].num = e.target.value; setExtractedQuestions(u); }}
+                                style={{ width: '100%', height: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center', fontWeight: 'bold', fontSize: '1rem' }} 
+                              />
+                            </div>
+                          )}
                           <div className="q-text" style={{ paddingRight: '1.5rem' }}>
-                            <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--accent)', marginBottom: '0.25rem' }}>{q.unit}</div>
+                            {showUnits && (
+                              <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--accent)', marginBottom: '0.25rem' }}>
+                                 <input 
+                                   type="text" 
+                                   value={q.unit || ''} 
+                                   placeholder="No Unit"
+                                   onChange={e => { const u = [...extractedQuestions]; u[i].unit = e.target.value; setExtractedQuestions(u); }}
+                                   style={{ background: 'transparent', border: 'none', color: 'var(--accent)', padding: 0, width: '100%', outline: 'none' }} 
+                                 />
+                              </div>
+                            )}
                             <textarea className="q-textarea" value={q.text}
                               onChange={e => { const u = [...extractedQuestions]; u[i].text = e.target.value; setExtractedQuestions(u); }} />
                           </div>
@@ -1431,7 +1623,7 @@ ${rawMarkdown}`;
             REPORT PREVIEW (Full SIT Format)
             ══════════════════════════════════════════ */}
         {view === 'preview' && report && (
-          <motion.div className="page active" key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5, ease: "easeOut" }} style={{ display: 'flex', flexDirection: 'column' }}>
+          <motion.div className="page active" key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5, ease: "easeOut" }} style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '2rem', boxSizing: 'border-box' }}>
             {/* Toolbar */}
             <div className="preview-topbar glass-card">
               <div className="preview-actions">
@@ -1446,11 +1638,12 @@ ${rawMarkdown}`;
             </div>
 
             {/* A4 Preview */}
-            <div className="report-page-container" style={{ background: '#94a3b8', padding: '2rem', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
-              <div id="report-preview-content" className="a4-container">
+            <div className="report-page-container" style={{ background: '#94a3b8', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
+              <div style={{ display: 'flex', minWidth: '100%', width: 'max-content', justifyContent: 'center', padding: '2rem' }}>
+                <div id="report-preview-content" className="a4-container" style={{ margin: 0 }}>
 
-                {/* ── CONTINUOUS DOCUMENT ── */}
-                <div className="report-document">
+                  {/* ── CONTINUOUS DOCUMENT ── */}
+                  <div className="report-document">
                   
                   {/* Single HTML header for screen preview (hidden during PDF export) */}
                   <div className="report-header">
@@ -1480,6 +1673,7 @@ ${rawMarkdown}`;
 
                 </div>
 
+              </div>
               </div>
             </div>
           </motion.div>

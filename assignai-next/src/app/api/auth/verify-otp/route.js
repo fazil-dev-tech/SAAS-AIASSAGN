@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import rateLimit from '@/utils/rateLimit';
+import { z } from 'zod';
 
 const limiter = rateLimit({
   interval: 60 * 1000, // 1 minute
@@ -11,20 +12,31 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+const verifyOtpSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  code: z.string().length(6, "OTP must be 6 digits"),
+  name: z.string().optional(),
+  type: z.enum(['login', 'signup']).optional()
+});
+
 export async function POST(request) {
   try {
     try {
       const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 OTP verifications per minute
+      await limiter.check(NextResponse, 100, ip); // HIGH limit: 100 OTP verifications per minute
     } catch {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
-    const { email, code, name, type } = await request.json(); // type: 'login' | 'signup'
+    const rawBody = await request.json();
+    const parsed = verifyOtpSchema.safeParse(rawBody);
 
-    if (!email || !code) {
-      return NextResponse.json({ error: "Email and code are required" }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request payload", details: parsed.error.issues }, { status: 400 });
     }
+
+    const { email, code, name, type } = parsed.data; // type: 'login' | 'signup'
+
 
     // Find the latest valid OTP for this email
     const { data: otps, error } = await supabase

@@ -27,8 +27,8 @@ const sourceSerif = Source_Serif_4({
 
 export const metadata = {
   title: "AssignAI — Premium Academic Report Generator",
-  description: "Generate professional, AI-powered academic reports with pixel-perfect SIT VTU formatting. Powered by Puter AI, grounded in real facts.",
-  keywords: "assignment generator, academic report, AI, SIT VTU, Puter AI",
+  description: "Generate professional, AI-powered academic reports with pixel-perfect SIT VTU formatting. Powered by NVIDIA Llama 3 and AssignAI Engine, grounded in real facts.",
+  keywords: "assignment generator, academic report, AI, SIT VTU, NVIDIA, Llama 3",
 };
 
 import Scene from '@/components/Scene';

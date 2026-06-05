@@ -229,7 +229,7 @@ export default function LandingPage({ onStart, isLoggedIn }) {
             <ArchitectureBlock 
               index="2" 
               title="Neural Processing" 
-              desc="The Puter AI Engine ingests the payload. It expands, researches, and strictly structures the content to university formatting guidelines within milliseconds." 
+              desc="The AssignAI Engine ingests the payload. It expands, researches, and strictly structures the content to university formatting guidelines within milliseconds." 
             />
             <ArchitectureBlock 
               index="3" 

@@ -1121,9 +1121,10 @@ export default function FuturisticAdminPortal() {
               </div>
               
               {/* Document Container (Matching exact User A4 Preview format) */}
-              <div className="report-page-container" style={{ flex: 1, background: '#e2e8f0', padding: '2rem', borderRadius: '0', overflowY: 'auto', display: 'flex', justifyContent: 'center' }}>
-                <div id="report-preview-content" className="a4-container" style={{ height: 'auto', minHeight: '297mm', overflow: 'visible' }}>
-                  <div className="report-document">
+              <div className="report-page-container" style={{ flex: 1, background: '#e2e8f0', borderRadius: '0', overflow: 'auto' }}>
+                <div style={{ display: 'flex', minWidth: '100%', width: 'max-content', justifyContent: 'center', padding: '2rem' }}>
+                  <div id="report-preview-content" className="a4-container" style={{ height: 'auto', minHeight: '297mm', overflow: 'visible', margin: 0 }}>
+                    <div className="report-document">
                     
                     <div className="report-header">
                       <span>Academic year - 2025-26</span>
@@ -1157,6 +1158,7 @@ export default function FuturisticAdminPortal() {
 
                   </div>
                 </div>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1174,18 +1176,61 @@ export default function FuturisticAdminPortal() {
         
         @media screen and (max-width: 768px) {
           .admin-layout { flex-direction: column !important; overflow-y: auto !important; }
-          .admin-sidebar { width: 100% !important; padding-top: 1rem !important; border-right: none !important; border-bottom: 1px solid rgba(226,232,240,1); }
-          .admin-sidebar .flex-1 { padding: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+          
+          /* Sidebar Mobile Layout */
+          .admin-sidebar { 
+            width: 100% !important; 
+            padding: 1rem !important; 
+            border-right: none !important; 
+            border-bottom: 1px solid rgba(226,232,240,1); 
+            display: flex !important; 
+            flex-direction: column !important; 
+            gap: 1rem;
+          }
+          .admin-sidebar .sidebar-logo { 
+            margin: 0 !important; 
+            padding: 0 0.5rem !important;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          
+          /* Horizontal Scrollable Tabs */
+          .admin-sidebar .nav-links { 
+            display: flex !important; 
+            flex-direction: row !important; 
+            overflow-x: auto !important; 
+            padding: 0 !important; 
+            gap: 0.5rem; 
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+          }
+          .admin-sidebar .nav-links::-webkit-scrollbar { display: none; }
+          .admin-sidebar .nav-links > button { 
+            white-space: nowrap; 
+            width: auto !important; 
+            margin-bottom: 0 !important; 
+            padding: 0.6rem 1.2rem !important;
+            flex-shrink: 0;
+          }
+          .admin-sidebar .workspace-title { display: none !important; }
+          .admin-sidebar .spotlight-btn { display: none !important; }
+          
+          /* Logout button adjusted for mobile */
+          .sidebar-bottom { padding: 0 !important; border-top: none !important; display: flex; justify-content: flex-end; }
+          .sidebar-bottom button { width: auto !important; padding: 0.5rem 1rem !important; font-size: 0.85rem !important; }
+          
+          /* Topbar Adjustments */
+          .admin-topbar { padding: 1rem !important; height: auto !important; flex-direction: column !important; align-items: flex-start !important; gap: 1rem; }
+          .admin-topbar > div { width: 100%; justify-content: space-between; }
+          
+          /* Bento Grid & Modal Adjustments */
           .admin-bento-grid { display: flex !important; flex-direction: column !important; }
           .bento-widget { grid-column: span 12 !important; }
           
-          /* New Mobile Fixes */
-          .admin-auth-card { padding: 2.5rem 1.5rem !important; margin: 1rem !important; width: calc(100% - 2rem) !important; box-sizing: border-box; border-radius: 24px !important; }
-          .admin-topbar { padding: 1rem !important; height: auto !important; flex-direction: column !important; align-items: flex-start !important; gap: 1rem; }
-          .admin-main-padding { padding: 1rem !important; }
-          
-          .report-overlay-header { flex-direction: column !important; align-items: flex-start !important; gap: 1.5rem; padding: 1.5rem 1rem !important; }
-          .report-overlay-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; gap: 0.5rem !important; }
+          .report-overlay-content { width: 95% !important; max-height: 95vh !important; padding: 1.5rem !important; }
+          .report-overlay-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+          .report-overlay-actions { width: 100%; display: flex; gap: 0.5rem; }
           .report-overlay-actions button { flex: 1; min-width: calc(50% - 0.5rem); padding: 12px 10px !important; justify-content: center; font-size: 0.85rem !important; }
           
           .report-page-container { padding: 0.5rem !important; }

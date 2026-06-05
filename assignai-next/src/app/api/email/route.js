@@ -3,26 +3,41 @@ import nodemailer from 'nodemailer';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import rateLimit from '@/utils/rateLimit';
+import { z } from 'zod';
 
 const limiter = rateLimit({
   interval: 60 * 1000, // 1 minute
   uniqueTokenPerInterval: 500,
 });
 
+const emailSchema = z.object({
+  to: z.string().email("Invalid email address"),
+  subject: z.string().optional(),
+  text: z.string().optional(),
+  filename: z.string().optional(),
+  htmlContent: z.string().min(1, "HTML content is required"),
+  dept: z.string().optional(),
+  inst: z.string().optional(),
+  reportSubject: z.string().optional()
+});
+
 export async function POST(request) {
   try {
     try {
       const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 emails per minute
+      await limiter.check(NextResponse, 100, ip); // HIGH limit: 100 emails per minute
     } catch {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
-    const { to, subject, text, filename, htmlContent, dept, inst, reportSubject } = await request.json();
+    const rawBody = await request.json();
+    const parsed = emailSchema.safeParse(rawBody);
 
-    if (!to || !htmlContent) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request payload", details: parsed.error.issues }, { status: 400 });
     }
+
+    const { to, subject, text, filename, htmlContent, dept, inst, reportSubject } = parsed.data;
 
     // Generate PDF Internally to bypass Vercel 4.5MB Payload Limit
     let browser;
@@ -33,8 +48,8 @@ export async function POST(request) {
         args: isLocal ? ['--no-sandbox', '--disable-setuid-sandbox'] : chromium.args,
         defaultViewport: chromium.defaultViewport,
         executablePath: isLocal 
-          ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' 
-          : await chromium.executablePath(),
+            ? process.env.CHROME_EXECUTABLE_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+            : await chromium.executablePath(),
         headless: isLocal ? true : chromium.headless,
       });
 

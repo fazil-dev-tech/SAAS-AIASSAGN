@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import rateLimit from '@/utils/rateLimit';
+import { z } from 'zod';
 
 const limiter = rateLimit({
   interval: 60 * 1000, // 1 minute
@@ -11,20 +12,31 @@ const limiter = rateLimit({
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+const reportSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  title: z.string().min(1, "Title is required"),
+  subject: z.string().optional(),
+  htmlContent: z.string().min(1, "HTML content is required"),
+  wordCount: z.number().optional()
+});
+
 export async function POST(request) {
   try {
     try {
       const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 requests per minute per IP
+      await limiter.check(NextResponse, 100, ip); // HIGH limit: 100 requests per minute per IP
     } catch {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
-    const { userId, title, subject, htmlContent, wordCount } = await request.json();
+    const rawBody = await request.json();
+    const parsed = reportSchema.safeParse(rawBody);
 
-    if (!userId || !title || !htmlContent) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request payload", details: parsed.error.issues }, { status: 400 });
     }
+
+    const { userId, title, subject, htmlContent, wordCount } = parsed.data;
 
     if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json({ error: "Database not configured" }, { status: 500 });

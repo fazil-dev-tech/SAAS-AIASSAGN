@@ -13,14 +13,25 @@ const pdfSchema = z.object({
   htmlContent: z.string().min(1, "HTML content is required"),
   subject: z.string().optional(),
   dept: z.string().optional(),
-  inst: z.string().optional()
+  inst: z.string().optional(),
+  headerLeft: z.string().optional(),
+  headerRight: z.string().optional(),
+  footerLeft: z.string().optional(),
+  footerRight: z.string().optional(),
+  docConfig: z.object({
+    marginTop: z.number().optional().default(35),
+    marginBottom: z.number().optional().default(35),
+    marginLeft: z.number().optional().default(15),
+    marginRight: z.number().optional().default(15),
+    fontSize: z.number().optional().default(12)
+  }).optional()
 });
 
 export async function POST(request) {
   try {
     try {
       const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 exports per minute
+      await limiter.check(NextResponse, 100, ip); // HIGH limit: 100 exports per minute
     } catch {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -32,14 +43,21 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid request payload", details: parsed.error.issues }, { status: 400 });
     }
 
-    const { htmlContent, subject, dept, inst } = parsed.data;
+    const { htmlContent, subject, dept, inst, headerLeft, headerRight, footerLeft, footerRight, docConfig } = parsed.data;
+    
+    // Default margins if not provided
+    const mt = docConfig?.marginTop ?? 35;
+    const mb = docConfig?.marginBottom ?? 35;
+    const ml = docConfig?.marginLeft ?? 15;
+    const mr = docConfig?.marginRight ?? 15;
+    const fs = docConfig?.fontSize ?? 12;
 
     let browser;
     try {
       const isLocal = process.env.NODE_ENV === 'development';
       
       const executablePath = isLocal 
-          ? (process.env.CHROME_EXECUTABLE_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe')
+          ? process.env.CHROME_EXECUTABLE_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
           : await chromium.executablePath();
 
       browser = await puppeteer.launch({
@@ -89,7 +107,7 @@ export async function POST(request) {
             line-height: 1.25;
             margin-top: 0;
             margin-bottom: 6px;
-            font-size: 12pt;
+            font-size: ${fs}pt;
           }
           
           ul, ol { margin-bottom: 6px; padding-left: 20px; }
@@ -156,7 +174,7 @@ export async function POST(request) {
 
           @page {
             size: A4;
-            margin: 35mm 15mm 35mm 15mm;
+            margin: ${mt}mm ${mr}mm ${mb}mm ${ml}mm;
           }
         </style>
       </head>
@@ -175,17 +193,22 @@ export async function POST(request) {
       console.warn("Puppeteer networkidle2 timed out, proceeding with PDF generation anyway...");
     }
 
+    const hLeft = headerLeft || 'Academic year - 2025-26';
+    const hRight = headerRight || subject;
+    const fLeft = footerLeft || `Dept of ${dept}, ${inst}`;
+    const fRight = footerRight || `Page <span class="pageNumber"></span>`;
+
     const headerTemplate = `
       <div style="width: 100%; font-size: 11pt; font-family: 'Times New Roman', serif; padding: 8mm 18mm 5px 25mm; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1.5px solid #8b0000; box-sizing: border-box;">
-        <div style="color: #000;">Academic year - 2025-26</div>
-        <div style="color: #000;">${subject}</div>
+        <div style="color: #000;">${hLeft}</div>
+        <div style="color: #000;">${hRight}</div>
       </div>
     `;
 
     const footerTemplate = `
       <div style="width: 100%; font-size: 11pt; font-family: 'Times New Roman', serif; padding: 3px 18mm 4mm 25mm; display: flex; justify-content: space-between; align-items: flex-start; border-top: 1.5px solid #8b0000; box-sizing: border-box;">
-        <div style="color: #000;">Dept of ${dept}, ${inst}</div>
-        <div style="color: #000;">Page <span class="pageNumber"></span></div>
+        <div style="color: #000;">${fLeft}</div>
+        <div style="color: #000;">${fRight}</div>
       </div>
     `;
 

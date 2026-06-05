@@ -19,7 +19,7 @@ create table if not exists public.otps (
 -- Create reports table
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
-  user_id text not null,
+  user_id text not null references public.users(email) on delete cascade,
   assignment_title text not null,
   subject text not null,
   html_content text not null,

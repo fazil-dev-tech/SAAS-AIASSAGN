@@ -62,9 +62,9 @@ export default function GuideBot({ onNavigate, onScanner }) {
 
   const actions = [
     {
-      label: 'How to Login (Puter.js)?',
-      response: 'AssignAI uses Puter.js for secure authentication and cloud storage. Click the button below to go to the login portal. You will be briefly redirected to Puter.com to authorize, then instantly routed back securely.',
-      btnLabel: 'Take Me To Login ➔',
+      label: 'How to Login?',
+      response: 'AssignAI uses secure authentication and cloud storage. Click the button below to go to the login portal. You will be briefly redirected to our secure identity provider to authorize, then instantly routed back securely.',
+      btnLabel: 'Go to Secure Login ➔',
       btnAction: 'login'
     },
     {

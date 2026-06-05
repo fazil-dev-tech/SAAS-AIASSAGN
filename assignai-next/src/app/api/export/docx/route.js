@@ -136,7 +136,7 @@ export async function POST(request) {
   try {
     try {
       const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 exports per minute
+      await limiter.check(NextResponse, 100, ip); // HIGH limit: 100 exports per minute
     } catch {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }

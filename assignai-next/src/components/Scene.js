@@ -107,35 +107,61 @@ function TechGrid() {
   );
 }
 
+import React, { Component } from 'react';
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.warn("WebGL Context lost or Scene crashed. Disabling 3D background.", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, background: '#09010e' }} />;
+    }
+    return this.props.children;
+  }
+}
+
 export default function Scene() {
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, pointerEvents: 'none' }}>
-      <Canvas camera={{ position: [0, 2, 8], fov: 50 }} gl={{ antialias: false, powerPreference: "high-performance" }}>
-        <color attach="background" args={['#09010e']} />
-        
-        <ambientLight intensity={0.5} />
-        <pointLight position={[0, 0, 0]} intensity={5} color="#ec4899" distance={10} />
-        <spotLight position={[10, 10, 10]} angle={0.3} penumbra={1} intensity={2} color="#f472b6" />
+      <ErrorBoundary>
+        <Canvas camera={{ position: [0, 2, 8], fov: 50 }} gl={{ antialias: false, powerPreference: "high-performance" }}>
+          <color attach="background" args={['#09010e']} />
+          
+          <ambientLight intensity={0.5} />
+          <pointLight position={[0, 0, 0]} intensity={5} color="#ec4899" distance={10} />
+          <spotLight position={[10, 10, 10]} angle={0.3} penumbra={1} intensity={2} color="#f472b6" />
 
-        <DataParticles count={2000} />
-        
-        {/* The Professional Grid and Rotating Circles */}
-        <TechGrid />
-        <ConcentricRings />
+          <DataParticles count={2000} />
+          
+          {/* The Professional Grid and Rotating Circles */}
+          <TechGrid />
+          <ConcentricRings />
 
-        <Environment resolution={256}>
-          <group rotation={[-Math.PI / 2, 0, 0]}>
-            <Lightformer intensity={4} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={[10, 10, 1]} color="#ff69b4" />
-          </group>
-        </Environment>
+          <Environment resolution={256}>
+            <group rotation={[-Math.PI / 2, 0, 0]}>
+              <Lightformer intensity={4} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={[10, 10, 1]} color="#ff69b4" />
+            </group>
+          </Environment>
 
-        <EffectComposer disableNormalPass multisampling={4}>
-          <Bloom luminanceThreshold={0.2} mipmapBlur luminanceSmoothing={0.9} intensity={2} />
-          <Noise opacity={0.03} blendFunction={BlendFunction.OVERLAY} />
-          <ChromaticAberration offset={[0.001, 0.001]} blendFunction={BlendFunction.NORMAL} />
-        </EffectComposer>
+          <EffectComposer disableNormalPass multisampling={4}>
+            <Bloom luminanceThreshold={0.2} mipmapBlur luminanceSmoothing={0.9} intensity={2} />
+            <Noise opacity={0.03} blendFunction={BlendFunction.OVERLAY} />
+            <ChromaticAberration offset={[0.001, 0.001]} blendFunction={BlendFunction.NORMAL} />
+          </EffectComposer>
 
-      </Canvas>
+        </Canvas>
+      </ErrorBoundary>
     </div>
   );
 }
