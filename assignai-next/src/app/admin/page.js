@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity */
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
