@@ -2,9 +2,22 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
+import rateLimit from '@/utils/rateLimit';
+
+const limiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 500,
+});
 
 export async function POST(request) {
   try {
+    try {
+      const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 emails per minute
+    } catch {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
+
     const { to, subject, text, filename, htmlContent, dept, inst, reportSubject } = await request.json();
 
     if (!to || !htmlContent) {

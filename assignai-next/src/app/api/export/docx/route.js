@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, BorderStyle, AlignmentType, HeadingLevel, Header, Footer, PageNumber, ImageRun } from 'docx';
 import { parse } from 'node-html-parser';
 import { z } from 'zod';
+import rateLimit from '@/utils/rateLimit';
+
+const limiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 500,
+});
 import fs from 'fs';
 import path from 'path';
 
@@ -128,6 +134,13 @@ function htmlToDocxParagraphs(html) {
 
 export async function POST(request) {
   try {
+    try {
+      const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 exports per minute
+    } catch {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
+
     const rawBody = await request.json();
     const parsed = docxSchema.safeParse(rawBody);
     

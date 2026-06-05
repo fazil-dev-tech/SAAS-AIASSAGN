@@ -426,6 +426,11 @@ export default function FuturisticAdminPortal() {
           .admin-main-padding { padding: 1rem !important; }
           .admin-topbar { padding: 0 1rem !important; }
         }
+
+        @media (max-width: 600px) {
+          .admin-login-inner { padding: 2rem 1.5rem !important; }
+          .admin-login-title { fontSize: '2rem' !important; }
+        }
       `}</style>
       
       {/* EXTREME AMBIENT GLOW EFFECTS & 3D SCENE */}
@@ -445,7 +450,7 @@ export default function FuturisticAdminPortal() {
             style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
           >
             <TiltCard style={{ width: '100%', maxWidth: '440px', padding: '1rem' }}>
-              <div style={{ 
+              <div className="admin-login-inner" style={{ 
                 width: '100%', padding: '4rem 3rem', textAlign: 'center', borderRadius: '32px', 
                 background: 'rgba(255, 255, 255, 0.7)', 
                 border: '1px solid rgba(255,255,255,0.9)', 
@@ -479,7 +484,7 @@ export default function FuturisticAdminPortal() {
                   </svg>
                 </motion.div>
                 
-                <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ fontSize: '2.5rem', fontFamily: '"Playfair Display", serif', fontWeight: 800, letterSpacing: '-0.5px', margin: '0 0 0.5rem', background: 'linear-gradient(135deg, #0f172a, #475569)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AssignAI</motion.h1>
+                <motion.h1 className="admin-login-title" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ fontSize: '2.5rem', fontFamily: '"Playfair Display", serif', fontWeight: 800, letterSpacing: '-0.5px', margin: '0 0 0.5rem', background: 'linear-gradient(135deg, #0f172a, #475569)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AssignAI</motion.h1>
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} style={{ color: '#e11d48', marginBottom: '3.5rem', fontSize: '0.9rem', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase' }}>Admin Central</motion.p>
 
                 <form onSubmit={handleLogin} style={{ textAlign: 'left' }}>
@@ -865,7 +870,7 @@ export default function FuturisticAdminPortal() {
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                               <div style={{ fontSize: '1rem', fontWeight: 700, color: u.is_suspended ? '#94a3b8' : '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: u.is_suspended ? 'line-through' : 'none' }}>{u.name || 'Unknown Agent'}</div>
-                              <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px', fontWeight: 600 }}>{u.email}</div>
+                              <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                               <div style={{ fontSize: '1.2rem', color: u.is_suspended ? '#94a3b8' : '#0f172a', fontWeight: 800 }}>{u.reports}</div>

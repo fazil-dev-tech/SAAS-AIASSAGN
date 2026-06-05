@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import rateLimit from '@/utils/rateLimit';
+
+const limiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 500, // Max 500 users per minute
+});
 
 // Setup Supabase client — uses anon key (service role key is optional for elevated access)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -7,6 +13,13 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 
 export async function POST(request) {
   try {
+    try {
+      const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 requests per minute per IP
+    } catch {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
+
     const { userId, title, subject, htmlContent, wordCount } = await request.json();
 
     if (!userId || !title || !htmlContent) {

@@ -37,24 +37,22 @@ drop policy if exists "Allow email lookup" on public.users;
 create policy "Allow email lookup" on public.users for select to anon using (true);
 
 drop policy if exists "Allow user creation" on public.users;
-create policy "Allow user creation" on public.users for insert to anon with check (true);
+-- REMOVED: anon cannot create users directly anymore. Server handles it via Service Role.
 
 -- OTPs Table Policies
 drop policy if exists "Allow OTP insertion" on public.otps;
-create policy "Allow OTP insertion" on public.otps for insert to anon with check (true);
+-- REMOVED: anon cannot insert OTPs directly.
 
 drop policy if exists "Allow OTP verification" on public.otps;
 create policy "Allow OTP verification" on public.otps for select to anon using (true);
 
 -- Reports Table Policies
 drop policy if exists "Allow report insertion" on public.reports;
-create policy "Allow report insertion" on public.reports for insert to anon with check (true);
+-- REMOVED: anon cannot insert reports directly. Server handles it via Service Role.
 
 drop policy if exists "Allow reading reports" on public.reports;
-create policy "Allow reading reports" on public.reports for select to anon 
-using (true);
+create policy "Allow reading reports" on public.reports for select to anon using (true);
 
 -- OTP Deletion Policy (Security Fix)
 drop policy if exists "Allow OTP deletion" on public.otps;
--- Only allow deletion of a specific email's OTP to prevent mass deletion
-create policy "Allow OTP deletion" on public.otps for delete to anon using (email = current_setting('request.jwt.claims', true)::json->>'email' OR true); -- Fallback for anon usage where client passes email in query
+create policy "Allow OTP deletion" on public.otps for delete to anon using (email = current_setting('request.jwt.claims', true)::json->>'email' OR true);

@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { z } from 'zod';
+import rateLimit from '@/utils/rateLimit';
+
+const limiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 500,
+});
 
 const pdfSchema = z.object({
   htmlContent: z.string().min(1, "HTML content is required"),
@@ -12,6 +18,13 @@ const pdfSchema = z.object({
 
 export async function POST(request) {
   try {
+    try {
+      const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+      await limiter.check(NextResponse, 50, ip); // HIGH limit: 50 exports per minute
+    } catch {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
+
     const rawBody = await request.json();
     const parsed = pdfSchema.safeParse(rawBody);
     
