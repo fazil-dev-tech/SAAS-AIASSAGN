@@ -99,30 +99,72 @@ export default function GuideBot({ onNavigate, onScanner }) {
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: '30px', left: '30px', zIndex: 99999 }}>
+    <div className="guidebot-wrapper">
+      <style>{`
+        .guidebot-wrapper {
+          position: fixed;
+          bottom: 30px;
+          right: 30px;
+          z-index: 99999;
+        }
+        .guidebot-popup {
+          position: absolute;
+          bottom: 80px;
+          right: 0;
+          width: calc(100vw - 60px);
+          max-width: 380px;
+          height: 550px;
+          background: rgba(10, 10, 10, 0.8);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(236,72,153,0.3);
+          border-radius: 24px;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset;
+          overflow: hidden;
+        }
+        .guidebot-btn {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #ec4899, #8b5cf6);
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.8rem;
+          box-shadow: 0 0 30px rgba(236,72,153,0.5);
+          color: #fff;
+          z-index: 99999;
+        }
+        @media (max-width: 768px) {
+          .guidebot-wrapper {
+            bottom: 15px;
+            right: 15px;
+          }
+          .guidebot-btn {
+            width: 48px;
+            height: 48px;
+            font-size: 1.3rem;
+          }
+          .guidebot-popup {
+            bottom: 60px;
+            right: 0;
+            width: calc(100vw - 30px);
+            height: 70vh;
+            max-height: 500px;
+          }
+        }
+      `}</style>
       <AnimatePresence>
         {isOpen && (
           <motion.div 
+            className="guidebot-popup"
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9, transition: { duration: 0.2 } }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            style={{ 
-              position: 'absolute', 
-              bottom: '80px', 
-              left: 0, 
-              width: 'calc(100vw - 60px)', 
-              maxWidth: '380px',
-              height: '550px',
-              background: 'rgba(10, 10, 10, 0.8)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(236,72,153,0.3)',
-              borderRadius: '24px',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset',
-              overflow: 'hidden'
-            }}
           >
             {/* Header */}
             <div style={{ height: '100px', background: 'linear-gradient(135deg, rgba(236,72,153,0.1), rgba(139,92,246,0.1))', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', padding: '0 1.5rem', position: 'relative' }}>
@@ -229,24 +271,10 @@ export default function GuideBot({ onNavigate, onScanner }) {
 
       {/* Floating Trigger Button */}
       <motion.button
+        className="guidebot-btn"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        style={{
-          width: '64px',
-          height: '64px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
-          border: 'none',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '1.8rem',
-          boxShadow: '0 0 30px rgba(236,72,153,0.5)',
-          color: '#fff',
-          zIndex: 99999
-        }}
       >
         {isOpen ? '×' : '🤖'}
       </motion.button>
