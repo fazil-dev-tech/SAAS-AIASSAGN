@@ -72,11 +72,11 @@ export default function Home() {
   }, []);
 
   const [authEmail, setAuthEmail] = useState('');
+  const [authName, setAuthName] = useState('');
   const [authOtp, setAuthOtp] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [loginType, setLoginType] = useState('student');
+  const [loginType, setLoginType] = useState('login'); // 'login' or 'signup'
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
@@ -161,7 +161,7 @@ export default function Home() {
     try {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: authEmail })
+        body: JSON.stringify({ email: authEmail, type: loginType })
       });
       const data = await res.json();
       if (res.ok) {
@@ -182,7 +182,7 @@ export default function Home() {
     try {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: authEmail, code: authOtp })
+        body: JSON.stringify({ email: authEmail, code: authOtp, type: loginType, name: authName })
       });
       const data = await res.json();
       if (res.ok) {
@@ -204,22 +204,7 @@ export default function Home() {
     setIsAuthenticating(false);
   };
 
-  const adminLogin = () => {
-    if (authEmail === 'mohamedfazilpasha156@gmail.com' && authPassword === 'TGVINCENZO') {
-      const adminUser = { email: 'mohamedfazilpasha156@gmail.com', id: 'admin-super' };
-      setUser(adminUser);
-      localStorage.setItem('assignai_user', JSON.stringify(adminUser));
-      localStorage.setItem('assignai_user_login_time', Date.now().toString());
-      
-      // Transition Animation
-      setView('transition');
-      toast('Admin logged in successfully!', 'success');
-      setTimeout(() => setView('dashboard'), 2500);
-      
-    } else {
-      toast('Invalid Admin Credentials', 'error');
-    }
-  };
+
 
   const signOut = () => {
     localStorage.removeItem('assignai_user');
@@ -1020,62 +1005,71 @@ ${rawMarkdown}`;
         <AnimatePresence mode="wait">
 
         {/* ══════════════════════════════════════════
-            AUTH PAGE
+            AUTH PAGE (MAX GLASSMORPHISM)
             ══════════════════════════════════════════ */}
         {view === 'auth' && (
-          <motion.div className="page active" key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5, ease: "easeOut" }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 100px)' }}>
-            <div className="glass-card" style={{ maxWidth: '420px', width: '100%', padding: '3rem 2.5rem', textAlign: 'center' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="AssignAI Logo" style={{ width: '80px', height: '80px', objectFit: 'contain', margin: '0 auto 1rem', display: 'block', borderRadius: '50%', boxShadow: 'var(--shadow-glow)' }} />
-              <h1 className="text-gradient" style={{ fontSize: '2.2rem', marginBottom: '0.25rem' }}>AssignAI</h1>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Premium AI-Powered Academic Report Generator</p>
+          <motion.div className="page active" key={view} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, filter: 'blur(20px)' }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }} style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 100px)', overflow: 'hidden' }}>
+            
+            {/* EXTREME AMBIENT GLOW EFFECTS */}
+            <div style={{ position: 'absolute', top: '10%', left: '10%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, rgba(0,0,0,0) 70%)', filter: 'blur(100px)', pointerEvents: 'none', zIndex: 0 }} />
+            <div style={{ position: 'absolute', bottom: '10%', right: '10%', width: '45vw', height: '45vw', background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(0,0,0,0) 70%)', filter: 'blur(120px)', pointerEvents: 'none', zIndex: 0 }} />
 
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ zIndex: 10, width: '100%', maxWidth: '440px', padding: '3.5rem 3rem', textAlign: 'center', borderRadius: '32px', background: 'rgba(15, 23, 42, 0.4)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 30px 60px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.2)', backdropFilter: 'blur(50px)', WebkitBackdropFilter: 'blur(50px)' }}>
+              
+              <div style={{ width: '80px', height: '80px', margin: '0 auto 1.5rem', borderRadius: '24px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 15px 35px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255,255,255,0.4)', overflow: 'hidden' }}>
+                <img src="/logo.png" alt="Logo" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
+              </div>
+              
+              <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.5px', marginBottom: '0.5rem', color: '#fff', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>AssignAI Network</h1>
+              <p style={{ color: '#94a3b8', marginBottom: '2.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Secure Biometric Generation Core</p>
+
+              <div style={{ display: 'flex', position: 'relative', marginBottom: '2.5rem', background: 'rgba(0,0,0,0.3)', padding: '6px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                {loginType === 'login' && <motion.div layoutId="auth-tab" style={{ position: 'absolute', top: 6, bottom: 6, left: 6, width: 'calc(50% - 6px)', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)' }} />}
+                {loginType === 'signup' && <motion.div layoutId="auth-tab" style={{ position: 'absolute', top: 6, bottom: 6, right: 6, width: 'calc(50% - 6px)', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)' }} />}
+                
                 <button 
-                  style={{ flex: 1, background: 'transparent', border: 'none', padding: '0.5rem', color: loginType === 'student' ? 'var(--text)' : 'var(--text-secondary)', borderBottom: loginType === 'student' ? '2px solid var(--accent)' : 'none', cursor: 'pointer', fontWeight: loginType === 'student' ? 'bold' : 'normal' }}
-                  onClick={() => setLoginType('student')}>
-                  Student Login
+                  style={{ flex: 1, zIndex: 1, background: 'transparent', border: 'none', padding: '0.8rem', color: loginType === 'login' ? '#fff' : '#64748b', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', transition: 'color 0.3s' }}
+                  onClick={() => setLoginType('login')}>
+                  Identity Sync
                 </button>
                 <button 
-                  style={{ flex: 1, background: 'transparent', border: 'none', padding: '0.5rem', color: loginType === 'admin' ? 'var(--text)' : 'var(--text-secondary)', borderBottom: loginType === 'admin' ? '2px solid var(--success)' : 'none', cursor: 'pointer', fontWeight: loginType === 'admin' ? 'bold' : 'normal' }}
-                  onClick={() => setLoginType('admin')}>
-                  Admin Portal
+                  style={{ flex: 1, zIndex: 1, background: 'transparent', border: 'none', padding: '0.8rem', color: loginType === 'signup' ? '#fff' : '#64748b', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', transition: 'color 0.3s' }}
+                  onClick={() => setLoginType('signup')}>
+                  New Identity
                 </button>
               </div>
 
-              <div style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
-                {loginType === 'student' ? (
-                  !otpSent ? (
-                    <>
-                      <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Email Address</label>
-                      <input className="form-control" type="email" placeholder="you@university.edu" value={authEmail} onChange={e => setAuthEmail(e.target.value)} disabled={isAuthenticating} style={{ width: '100%', marginBottom: '1rem', boxSizing: 'border-box' }} />
-                      <button className="btn btn-primary" style={{ width: '100%' }} onClick={requestOtp} disabled={isAuthenticating}>
-                        {isAuthenticating ? 'Sending...' : 'Continue with Email'}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Enter 6-Digit Code</label>
-                      <input className="form-control" type="text" placeholder="123456" maxLength={6} value={authOtp} onChange={e => setAuthOtp(e.target.value.replace(/\D/g, ''))} disabled={isAuthenticating} style={{ width: '100%', marginBottom: '1rem', letterSpacing: '5px', textAlign: 'center', fontSize: '1.2rem', boxSizing: 'border-box' }} />
-                      <button className="btn btn-primary" style={{ width: '100%' }} onClick={verifyOtp} disabled={isAuthenticating}>
-                        {isAuthenticating ? 'Verifying...' : 'Secure Login'}
-                      </button>
-                      <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                        <a href="#" onClick={(e) => { e.preventDefault(); setOtpSent(false); }} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textDecoration: 'none' }}>&larr; Back to Email</a>
+              <div style={{ textAlign: 'left' }}>
+                <AnimatePresence mode="wait">
+                  {!otpSent ? (
+                    <motion.div key="form" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+                      {loginType === 'signup' && (
+                        <div style={{ marginBottom: '1.2rem', position: 'relative' }}>
+                          <input type="text" placeholder="Full Identity Name" value={authName} onChange={e => setAuthName(e.target.value)} disabled={isAuthenticating} style={{ width: '100%', padding: '16px 20px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', color: '#fff', fontSize: '1rem', outline: 'none', transition: 'all 0.3s', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }} onFocus={(e) => {e.target.style.borderColor = '#10b981'; e.target.style.background = 'rgba(0,0,0,0.5)'}} onBlur={(e) => {e.target.style.borderColor = 'rgba(255,255,255,0.05)'; e.target.style.background = 'rgba(0,0,0,0.3)'}} />
+                        </div>
+                      )}
+                      <div style={{ marginBottom: '2rem', position: 'relative' }}>
+                        <input type="email" placeholder="Primary Email Vector" value={authEmail} onChange={e => setAuthEmail(e.target.value)} disabled={isAuthenticating} style={{ width: '100%', padding: '16px 20px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', color: '#fff', fontSize: '1rem', outline: 'none', transition: 'all 0.3s', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }} onFocus={(e) => {e.target.style.borderColor = '#10b981'; e.target.style.background = 'rgba(0,0,0,0.5)'}} onBlur={(e) => {e.target.style.borderColor = 'rgba(255,255,255,0.05)'; e.target.style.background = 'rgba(0,0,0,0.3)'}} />
                       </div>
-                    </>
-                  )
-                ) : (
-                  <>
-                    <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Admin Email</label>
-                    <input className="form-control" type="email" placeholder="Admin Email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} style={{ width: '100%', marginBottom: '1rem', boxSizing: 'border-box' }} />
-                    <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Admin Password</label>
-                    <input className="form-control" type="password" placeholder="••••••••" value={authPassword} onChange={e => setAuthPassword(e.target.value)} style={{ width: '100%', marginBottom: '1rem', boxSizing: 'border-box' }} />
-                    <button className="btn btn-primary" style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)' }} onClick={adminLogin}>
-                      Login as Admin
-                    </button>
-                  </>
-                )}
+                      
+                      <button style={{ width: '100%', padding: '18px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '1.05rem', fontWeight: 800, cursor: isAuthenticating || (loginType === 'signup' && !authName.trim()) ? 'not-allowed' : 'pointer', opacity: isAuthenticating || (loginType === 'signup' && !authName.trim()) ? 0.5 : 1, transition: 'all 0.2s', boxShadow: '0 10px 25px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255,255,255,0.4)' }} onClick={requestOtp} disabled={isAuthenticating || (loginType === 'signup' && !authName.trim())} onMouseDown={(e) => { if (!e.target.disabled) e.target.style.transform = 'scale(0.97)'}} onMouseUp={(e) => { if (!e.target.disabled) e.target.style.transform = 'scale(1)'}}>
+                        {isAuthenticating ? 'Transmitting...' : 'Initialize Uplink'}
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="otp" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+                      <div style={{ marginBottom: '2rem', position: 'relative' }}>
+                        <input type="text" placeholder="• • • • • •" maxLength={6} value={authOtp} onChange={e => setAuthOtp(e.target.value.replace(/\D/g, ''))} disabled={isAuthenticating} style={{ width: '100%', padding: '16px', background: 'rgba(0,0,0,0.3)', border: '1px solid #10b981', borderRadius: '16px', color: '#10b981', fontSize: '1.5rem', letterSpacing: '10px', textAlign: 'center', outline: 'none', transition: 'all 0.3s', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2), 0 0 20px rgba(16,185,129,0.2)' }} />
+                      </div>
+                      <button style={{ width: '100%', padding: '18px', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#fff', border: 'none', borderRadius: '16px', fontSize: '1.05rem', fontWeight: 800, cursor: isAuthenticating ? 'not-allowed' : 'pointer', opacity: isAuthenticating ? 0.5 : 1, transition: 'all 0.2s', boxShadow: '0 10px 25px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255,255,255,0.4)' }} onClick={verifyOtp} disabled={isAuthenticating} onMouseDown={(e) => { if (!e.target.disabled) e.target.style.transform = 'scale(0.97)'}} onMouseUp={(e) => { if (!e.target.disabled) e.target.style.transform = 'scale(1)'}}>
+                        {isAuthenticating ? 'Verifying Neural Match...' : 'Confirm Authentication'}
+                      </button>
+                      <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                        <a href="#" onClick={(e) => { e.preventDefault(); setOtpSent(false); }} style={{ fontSize: '0.85rem', color: '#64748b', textDecoration: 'none', fontWeight: 600, transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = '#fff'} onMouseOut={(e) => e.target.style.color = '#64748b'}>&larr; Abort & Return</a>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>
@@ -1134,11 +1128,11 @@ ${rawMarkdown}`;
                     <h4 style={{ marginBottom: '0.5rem' }}>Batch Generate</h4>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Upload CSV of students for bulk unique reports.</p>
                   </div>
-                  <div className="glass-card" style={{ padding: '1.5rem', cursor: 'pointer' }} onClick={startAdmin}>
+                  <a href="/admin" className="glass-card" style={{ padding: '1.5rem', cursor: 'pointer', textDecoration: 'none', color: 'inherit', display: 'block' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📊</div>
                     <h4 style={{ marginBottom: '0.5rem' }}>Admin Panel</h4>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Analytics, audit logs, and user management.</p>
-                  </div>
+                  </a>
                 </>
               )}
             </div>
@@ -1694,80 +1688,7 @@ ${rawMarkdown}`;
           </motion.div>
         )}
 
-        {/* ══════════════════════════════════════════
-            ADMIN PANEL
-            ══════════════════════════════════════════ */}
-        {view === 'admin' && (
-          <motion.div className="page active" key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.5, ease: "easeOut" }} style={{ display: 'flex', flexDirection: 'column' }}>
-            {user?.email !== 'mohamedfazilpasha156@gmail.com' ? (
-              <div className="glass-card" style={{ padding: '3rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
-                <h2>Access Denied</h2>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Only the Global Admin can access this panel.</p>
-                <button className="btn btn-secondary" onClick={() => setView('dashboard')}>Return to Dashboard</button>
-              </div>
-            ) : (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                  <div>
-                    <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Global Admin Panel</h2>
-                    <p style={{ color: 'var(--text-secondary)' }}>System-wide analytics and audit logs.</p>
-                  </div>
-                  <button className="btn btn-secondary" onClick={() => setView('dashboard')}>← Exit Admin</button>
-                </div>
 
-                <div className="stats-grid" style={{ marginBottom: '2rem' }}>
-                  <div className="glass-card stat-card" style={{ padding: '1.5rem', borderColor: 'var(--accent)' }}>
-                    <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📊</div>
-                    <div className="stat-value">{stats.reports}</div>
-                    <div style={{ color: 'var(--text-secondary)' }}>Total Global Reports</div>
-                  </div>
-                  <div className="glass-card stat-card" style={{ padding: '1.5rem', borderColor: 'var(--success)' }}>
-                    <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📝</div>
-                    <div className="stat-value">{stats.words.toLocaleString()}</div>
-                    <div style={{ color: 'var(--text-secondary)' }}>Total AI Words Generated</div>
-                  </div>
-                </div>
-
-                <div className="glass-card" style={{ padding: '2rem' }}>
-                  <h3 style={{ marginBottom: '1.5rem' }}>Global Audit Log (All Users)</h3>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                          <th style={{ padding: '1rem 0' }}>Date</th>
-                          <th style={{ padding: '1rem 0' }}>Assignment</th>
-                          <th style={{ padding: '1rem 0' }}>Subject</th>
-                          <th style={{ padding: '1rem 0' }}>Student Name</th>
-                          <th style={{ padding: '1rem 0' }}>Linked Email</th>
-                          <th style={{ padding: '1rem 0' }}>Words</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {savedReports.map((r, i) => {
-                          const parts = (r.subject || '').split(' | Student: ');
-                          const cleanSubject = parts[0];
-                          const studentName = parts[1] || '—';
-                          
-                          return (
-                            <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                              <td style={{ padding: '1rem 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{new Date(r.created_at).toLocaleString()}</td>
-                              <td style={{ padding: '1rem 0', fontWeight: '500' }}>{r.assignment_title}</td>
-                              <td style={{ padding: '1rem 0' }}>{cleanSubject}</td>
-                              <td style={{ padding: '1rem 0', color: 'var(--accent)', fontWeight: 'bold' }}>{studentName}</td>
-                              <td style={{ padding: '1rem 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{r.user_id}</td>
-                              <td style={{ padding: '1rem 0' }}>{r.word_count?.toLocaleString()}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
         </AnimatePresence>
       </div>
       </motion.div>

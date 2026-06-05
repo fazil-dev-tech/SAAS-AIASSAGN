@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Setup Supabase admin client for secure server-side operations
+// Setup Supabase client — uses anon key (service role key is optional for elevated access)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''; // Must be configured in .env for production
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export async function POST(request) {
   try {
@@ -13,12 +13,11 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      // Fallback gracefully if keys aren't configured yet
-      return NextResponse.json({ success: true, message: "Database not configured, skipping save." }, { status: 200 });
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 500 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Insert into the 'reports' table we created via MCP
     const { data, error } = await supabase

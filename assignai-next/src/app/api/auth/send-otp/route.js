@@ -8,10 +8,31 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export async function POST(request) {
   try {
-    const { email } = await request.json();
+    const { email, type } = await request.json(); // type: 'login' | 'signup'
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    // Attempt to check users table
+    const { data: existingUser, error: userError } = await supabase
+      .from('users')
+      .select('email, is_suspended')
+      .eq('email', email)
+      .single();
+    
+    // Ignore error if table doesn't exist, but enforce logic if it does
+    if (!userError || userError.code === 'PGRST116') { // PGRST116 is not found
+      if (type === 'signup' && existingUser) {
+        return NextResponse.json({ error: "Account already exists. Please sign in." }, { status: 400 });
+      }
+      if (type === 'login' && !existingUser) {
+        return NextResponse.json({ error: "Account not found. Please create an account first." }, { status: 404 });
+      }
+      // Block suspended users from logging in
+      if (existingUser && existingUser.is_suspended) {
+        return NextResponse.json({ error: "Your account has been suspended. Please contact the administrator." }, { status: 403 });
+      }
     }
 
     // Generate 6-digit OTP

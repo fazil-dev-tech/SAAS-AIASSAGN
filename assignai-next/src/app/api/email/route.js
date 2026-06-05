@@ -188,13 +188,13 @@ export async function POST(request) {
       port: 465,
       secure: true,
       auth: {
-        user: process.env.SMTP_USER || 'mohamedfazilpasha156@gmail.com',
-        pass: process.env.SMTP_PASS?.replace(/"/g, '') || 'hknw ipix ynwa unjj',
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS?.replace(/"/g, ''),
       },
     });
 
     const mailOptions = {
-      from: process.env.SMTP_USER || 'mohamedfazilpasha156@gmail.com',
+      from: process.env.SMTP_USER || process.env.EMAIL_USER,
       to: to,
       subject: subject || 'Your Generated Assignment Report',
       text: text || 'Please find your generated report attached.',

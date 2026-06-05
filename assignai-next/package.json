@@ -19,6 +19,7 @@
     "file-saver": "^2.0.5",
     "framer-motion": "^12.40.0",
     "jszip": "^3.10.1",
+    "lucide-react": "^1.17.0",
     "next": "16.2.6",
     "node-html-parser": "^7.1.0",
     "nodemailer": "^8.0.10",
@@ -26,6 +27,7 @@
     "puppeteer-core": "^25.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "recharts": "^3.8.1",
     "tesseract.js": "^7.0.0",
     "three": "^0.184.0"
   },
