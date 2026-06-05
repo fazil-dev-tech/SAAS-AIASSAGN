@@ -17,59 +17,80 @@ const docxSchema = z.object({
 /* ── Convert HTML string to an array of docx Paragraph objects ── */
 function htmlToDocxParagraphs(html) {
   const paragraphs = [];
-  // Wrap HTML in a div to ensure a consistent root structure
-  const root = parse(`<div>${html || ''}</div>`);
+  const cleanHtml = (html || '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  const root = parse(`<div>${cleanHtml}</div>`);
+
+  function parseTextRuns(node, currentFormat = {}) {
+    let runs = [];
+    if (!node) return runs;
+    if (node.nodeType === 3) {
+      let text = node.text;
+      if (text) {
+        text = text.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ');
+        if (text) runs.push(new TextRun({ text, size: 24, font: 'Times New Roman', color: '000000', ...currentFormat }));
+      }
+      return runs;
+    }
+    const tag = node.tagName?.toLowerCase();
+    if (tag === 'style' || tag === 'script') return runs;
+    const format = { ...currentFormat };
+    if (tag === 'strong' || tag === 'b') format.bold = true;
+    if (tag === 'em' || tag === 'i') format.italics = true;
+    if (tag === 'u') format.underline = {};
+
+    if (tag === 'br') {
+      runs.push(new TextRun({ break: 1 }));
+    }
+    if (node.childNodes) {
+      for (const child of node.childNodes) {
+        runs.push(...parseTextRuns(child, format));
+      }
+    }
+    return runs;
+  }
 
   function processNodes(nodes) {
     for (const node of nodes) {
       if (node.nodeType === 3) {
-        // Raw text node
-        const text = node.text.trim();
+        let text = node.text;
+        text = text.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
         if (text) paragraphs.push(new Paragraph({ children: [new TextRun({ text, size: 24, font: 'Times New Roman', color: '000000' })] }));
         continue;
       }
 
       const tag = node.tagName?.toLowerCase();
-      const innerText = node.text?.trim() || '';
+      if (tag === 'style' || tag === 'script') continue;
 
       if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4') {
         const level = { h1: HeadingLevel.HEADING_1, h2: HeadingLevel.HEADING_2, h3: HeadingLevel.HEADING_3, h4: HeadingLevel.HEADING_4 }[tag];
-        paragraphs.push(new Paragraph({ text: innerText, heading: level, spacing: { before: 200, after: 100 } }));
+        paragraphs.push(new Paragraph({ 
+          children: parseTextRuns(node), 
+          heading: level, 
+          spacing: { before: 200, after: 100 },
+          keepNext: true,
+          keepLines: true
+        }));
       } else if (tag === 'ul' || tag === 'ol') {
         const items = node.querySelectorAll('li');
         items.forEach(li => {
+          const runs = parseTextRuns(li);
+          if (runs.length > 0) {
+            runs[0] = new TextRun({ text: '• ' + runs[0].text, size: 24, font: 'Times New Roman', color: '000000', bold: runs[0].bold, italics: runs[0].italics, underline: runs[0].underline });
+          } else {
+            runs.push(new TextRun({ text: '• ', size: 24, font: 'Times New Roman', color: '000000' }));
+          }
           paragraphs.push(new Paragraph({
-            children: [new TextRun({ text: '• ' + (li.text?.trim() || ''), size: 24, font: 'Times New Roman', color: '000000' })],
+            children: runs,
             spacing: { after: 60 },
             indent: { left: 720 },
             alignment: AlignmentType.JUSTIFIED
           }));
         });
-      } else if (tag === 'strong' || tag === 'b') {
-        paragraphs.push(new Paragraph({ children: [new TextRun({ text: innerText, bold: true, size: 24, font: 'Times New Roman', color: '000000' })], spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
-      } else if (tag === 'em' || tag === 'i') {
-        paragraphs.push(new Paragraph({ children: [new TextRun({ text: innerText, italics: true, size: 24, font: 'Times New Roman', color: '000000' })], spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
       } else if (tag === 'p') {
-        // Parse children for mixed bold/normal text within a paragraph
-        const runs = [];
-        for (const child of node.childNodes) {
-          if (child.nodeType === 3) {
-            runs.push(new TextRun({ text: child.text, size: 24, font: 'Times New Roman', color: '000000' }));
-          } else {
-            const childTag = child.tagName?.toLowerCase();
-            const childText = child.text?.trim() || '';
-            if (childTag === 'strong' || childTag === 'b') {
-              runs.push(new TextRun({ text: childText, bold: true, size: 24, font: 'Times New Roman', color: '000000' }));
-            } else if (childTag === 'em' || childTag === 'i') {
-              runs.push(new TextRun({ text: childText, italics: true, size: 24, font: 'Times New Roman', color: '000000' }));
-            } else {
-              runs.push(new TextRun({ text: childText, size: 24, font: 'Times New Roman', color: '000000' }));
-            }
-          }
-        }
+        const runs = parseTextRuns(node);
         if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs, spacing: { after: 120 }, alignment: AlignmentType.JUSTIFIED }));
-      } else if (tag === 'br') {
-        paragraphs.push(new Paragraph({ text: '' }));
       } else if (tag === 'img') {
         const src = node.getAttribute('src');
         if (src && src.startsWith('data:image')) {
@@ -79,10 +100,7 @@ function htmlToDocxParagraphs(html) {
               children: [
                 new ImageRun({
                   data: Buffer.from(base64Data, 'base64'),
-                  transformation: {
-                    width: 450,
-                    height: 450
-                  }
+                  transformation: { width: 450, height: 450 }
                 })
               ],
               alignment: AlignmentType.CENTER,
@@ -91,11 +109,13 @@ function htmlToDocxParagraphs(html) {
           );
         }
       } else if (tag === 'div' || tag === 'section' || tag === 'article' || tag === 'span' || tag === 'center') {
-        // Recurse into containers
         processNodes(node.childNodes);
+      } else if (tag === 'strong' || tag === 'b' || tag === 'em' || tag === 'i') {
+        const runs = parseTextRuns(node);
+        if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs, spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
       } else {
-        // Fallback: treat as plain text if it has text inside
-        if (innerText) paragraphs.push(new Paragraph({ children: [new TextRun({ text: innerText, size: 24, font: 'Times New Roman', color: '000000' })], spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
+        const text = node.text?.trim() || '';
+        if (text) paragraphs.push(new Paragraph({ children: [new TextRun({ text, size: 24, font: 'Times New Roman', color: '000000' })], spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
       }
     }
   }
@@ -130,7 +150,7 @@ export async function POST(request) {
             next: "Normal",
             quickFormat: true,
             run: { size: 32, bold: true, color: "000000", font: "Times New Roman" },
-            paragraph: { spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER },
+            paragraph: { spacing: { before: 240, after: 120 }, alignment: AlignmentType.CENTER, keepNext: true, keepLines: true },
           },
           {
             id: "Heading2",
@@ -139,7 +159,7 @@ export async function POST(request) {
             next: "Normal",
             quickFormat: true,
             run: { size: 28, bold: true, color: "1F497D", font: "Times New Roman" }, // Dark blue
-            paragraph: { spacing: { before: 240, after: 120 } },
+            paragraph: { spacing: { before: 240, after: 120 }, keepNext: true, keepLines: true },
           },
           {
             id: "Heading3",
@@ -148,7 +168,7 @@ export async function POST(request) {
             next: "Normal",
             quickFormat: true,
             run: { size: 24, bold: true, color: "1F497D", font: "Times New Roman" },
-            paragraph: { spacing: { before: 240, after: 120 } },
+            paragraph: { spacing: { before: 240, after: 120 }, keepNext: true, keepLines: true },
           },
           {
             id: "Heading4",
@@ -157,7 +177,7 @@ export async function POST(request) {
             next: "Normal",
             quickFormat: true,
             run: { size: 24, bold: true, italics: true, color: "000000", font: "Times New Roman" },
-            paragraph: { spacing: { before: 120, after: 120 } },
+            paragraph: { spacing: { before: 120, after: 120 }, keepNext: true, keepLines: true },
           }
         ]
       },
@@ -224,7 +244,7 @@ export async function POST(request) {
                             alignment: AlignmentType.RIGHT,
                             children: [
                               new TextRun({ text: "Page " }),
-                              PageNumber.CURRENT,
+                              new TextRun({ children: [PageNumber.CURRENT] }),
                             ]
                           })],
                           borders: { top: {style: BorderStyle.NONE}, bottom: {style: BorderStyle.NONE}, left: {style: BorderStyle.NONE}, right: {style: BorderStyle.NONE} }
@@ -239,36 +259,14 @@ export async function POST(request) {
           children: [
             // ANSWERS — properly formatted from HTML
             ...(function() {
-              let lastUnit = null;
               return (answers || []).flatMap((a, idx) => {
                 const blocks = [];
                 
-                if (a.unit !== lastUnit) {
-                  blocks.push(
-                    new Paragraph({
-                      text: (a.unit || '').toUpperCase(),
-                      heading: HeadingLevel.HEADING_1,
-                      pageBreakBefore: idx > 0,
-                    })
-                  );
-                  lastUnit = a.unit;
+                if (idx > 0) {
+                  blocks.push(new Paragraph({ pageBreakBefore: true, text: "" }));
                 }
 
-                blocks.push(
-                  new Paragraph({
-                    children: [
-                      new TextRun({ text: `Q${a.num ? a.num + '. ' : ''}${a.text}`, size: 24, font: 'Times New Roman', bold: true })
-                    ],
-                    spacing: { before: 200, after: 200 },
-                    alignment: AlignmentType.JUSTIFIED,
-                    pageBreakBefore: idx > 0 && a.unit === lastUnit
-                  }),
-                  new Paragraph({
-                    children: [new TextRun({ text: "Solution:", bold: true, size: 24, font: 'Times New Roman' })],
-                    spacing: { after: 120 },
-                  }),
-                  ...htmlToDocxParagraphs(a.answerHTML)
-                );
+                blocks.push(...htmlToDocxParagraphs(a.answerHTML));
                 
                 return blocks;
               });
