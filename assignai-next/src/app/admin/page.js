@@ -1196,23 +1196,21 @@ export default function FuturisticAdminPortal() {
             align-items: center;
           }
           
-          /* Horizontal Scrollable Tabs */
+          /* Responsive Grid Tabs for Mobile (No hidden scrolling) */
           .admin-sidebar .nav-links { 
-            display: flex !important; 
-            flex-direction: row !important; 
-            overflow-x: auto !important; 
-            padding: 0 !important; 
+            display: grid !important; 
+            grid-template-columns: 1fr 1fr;
             gap: 0.5rem; 
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; /* Firefox */
+            padding: 0 !important; 
+            width: 100%;
           }
-          .admin-sidebar .nav-links::-webkit-scrollbar { display: none; }
           .admin-sidebar .nav-links > button { 
-            white-space: nowrap; 
-            width: auto !important; 
+            width: 100% !important; 
             margin-bottom: 0 !important; 
-            padding: 0.6rem 1.2rem !important;
-            flex-shrink: 0;
+            padding: 0.6rem !important;
+            justify-content: center;
+            font-size: 0.8rem !important;
+            white-space: nowrap;
           }
           .admin-sidebar .workspace-title { display: none !important; }
           .admin-sidebar .spotlight-btn { display: none !important; }
