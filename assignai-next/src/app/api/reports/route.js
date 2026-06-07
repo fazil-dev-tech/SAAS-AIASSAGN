@@ -20,6 +20,35 @@ const reportSchema = z.object({
   wordCount: z.number().optional()
 });
 
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
+
+    if (!email) {
+      return NextResponse.json({ error: "Email parameter is required" }, { status: 400 });
+    }
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('user_id', email)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json(data || []);
+  } catch (error) {
+    console.error("Database Fetch Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function POST(request) {
   try {
     try {
@@ -44,7 +73,6 @@ export async function POST(request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Insert into the 'reports' table we created via MCP
     const { data, error } = await supabase
       .from('reports')
       .insert([
@@ -68,3 +96,34 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const email = searchParams.get('email');
+
+    if (!id || !email) {
+      return NextResponse.json({ error: "ID and email parameters are required" }, { status: 400 });
+    }
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { error } = await supabase
+      .from('reports')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', email);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, message: "Report deleted successfully" });
+  } catch (error) {
+    console.error("Database Delete Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+

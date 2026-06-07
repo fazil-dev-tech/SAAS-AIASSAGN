@@ -106,6 +106,7 @@ export default function FuturisticAdminPortal() {
 
   // View Arrangement State
   const [reportViewArrangement, setReportViewArrangement] = useState('list'); // 'list' or 'grid'
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Removed mock sysHealth. Replaced with real analytics below.
 
@@ -149,23 +150,28 @@ export default function FuturisticAdminPortal() {
   }, []);
 
   const fetchAdminData = async () => {
-    if (sb) {
-      const [resReports, resUsers] = await Promise.all([
-        sb.from('reports').select('*').order('created_at', { ascending: false }),
-        sb.from('users').select('*')
-      ]);
-      if (resReports.data) {
-        setSavedReports(resReports.data);
+    const adminPass = localStorage.getItem('assignai_admin_password') || '';
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'GET',
+        headers: { 'Authorization': adminPass }
+      });
+      if (!res.ok) throw new Error('Failed to fetch admin data');
+      const data = await res.json();
+      if (data.reports) {
+        setSavedReports(data.reports);
         setStats({
-          reports: resReports.data.length,
-          words: resReports.data.reduce((sum, r) => sum + (r.word_count || 0), 0)
+          reports: data.reports.length,
+          words: data.reports.reduce((sum, r) => sum + (r.word_count || 0), 0)
         });
-        const firstReportDate = resReports.data.length > 0 ? Math.min(...resReports.data.map(r => new Date(r.created_at).getTime())) : Date.now();
+        const firstReportDate = data.reports.length > 0 ? Math.min(...data.reports.map(r => new Date(r.created_at).getTime())) : Date.now();
         setUptimeDays(Math.max(1, Math.floor((Date.now() - firstReportDate) / 86400000)));
       }
-      if (resUsers.data) {
-        setDbUsers(resUsers.data);
+      if (data.users) {
+        setDbUsers(data.users);
       }
+    } catch (err) {
+      toast(err.message, 'error');
     }
   };
 
@@ -192,26 +198,32 @@ export default function FuturisticAdminPortal() {
     }
   }, [isAdminLoggedIn]);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const email = authEmail.trim().toLowerCase();
-    // Ultra-resilient backdoor for the user's email or the standard admin
-    if (
-      email.includes('mohamed') || 
-      email.includes('admin')
-    ) {
-      setIsAdminLoggedIn(true);
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Invalid Credentials');
+      }
       localStorage.setItem('assignai_admin_logged_in', 'true');
+      localStorage.setItem('assignai_admin_password', authPassword);
       localStorage.setItem('assignai_admin_last_active', Date.now().toString());
+      setIsAdminLoggedIn(true);
       toast('Admin Authenticated Securely', 'success');
-    } else {
-      toast('Access Denied: Invalid Credentials', 'error');
+    } catch (err) {
+      toast(err.message, 'error');
     }
   };
 
   const handleLogout = () => {
     setIsAdminLoggedIn(false);
     localStorage.removeItem('assignai_admin_logged_in');
+    localStorage.removeItem('assignai_admin_password');
     localStorage.removeItem('assignai_admin_last_active');
     setAuthEmail('');
     setAuthPassword('');
@@ -226,44 +238,67 @@ export default function FuturisticAdminPortal() {
   };
 
   const suspendUser = async (email, currentStatus) => {
-    if (!sb) return;
     const newStatus = !currentStatus;
-    const { error } = await sb.from('users').update({ is_suspended: newStatus }).eq('email', email);
-    if (error) {
-      toast(`Failed to update suspension status`, 'error');
-    } else {
+    const adminPass = localStorage.getItem('assignai_admin_password') || '';
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': adminPass
+        },
+        body: JSON.stringify({ action: 'suspend', email, isSuspended: newStatus })
+      });
+      if (!res.ok) throw new Error('Failed to update suspension status');
       toast(`User ${email} ${newStatus ? 'Suspended' : 'Restored'}`, 'success');
       fetchAdminData(); 
       if (selectedUser && selectedUser.email === email) {
         setSelectedUser(prev => ({ ...prev, is_suspended: newStatus }));
       }
+    } catch (err) {
+      toast(err.message, 'error');
     }
   };
 
   const deleteUser = async (email) => {
     if (!confirm(`Are you absolutely sure you want to permanently delete user ${email}? This cannot be undone.`)) return;
-    if (!sb) return;
-    await sb.from('reports').delete().eq('user_id', email);
-    const { error } = await sb.from('users').delete().eq('email', email);
-    if (error) {
-      toast(`Failed to delete user`, 'error');
-    } else {
+    const adminPass = localStorage.getItem('assignai_admin_password') || '';
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': adminPass
+        },
+        body: JSON.stringify({ action: 'delete-user', email })
+      });
+      if (!res.ok) throw new Error('Failed to delete user');
       toast(`User ${email} permanently deleted`, 'success');
       setSelectedUser(null);
       fetchAdminData();
+    } catch (err) {
+      toast(err.message, 'error');
     }
   };
 
   const deleteReport = async (id) => {
     if (!confirm(`Delete this report from the database?`)) return;
-    if (!sb) return;
-    const { error } = await sb.from('reports').delete().eq('id', id);
-    if (error) {
-      toast('Failed to delete report', 'error');
-    } else {
+    const adminPass = localStorage.getItem('assignai_admin_password') || '';
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': adminPass
+        },
+        body: JSON.stringify({ action: 'delete-report', reportId: id })
+      });
+      if (!res.ok) throw new Error('Failed to delete report');
       toast('Report deleted successfully', 'success');
       setViewingReport(null);
       fetchAdminData();
+    } catch (err) {
+      toast(err.message, 'error');
     }
   };
 
@@ -592,6 +627,25 @@ export default function FuturisticAdminPortal() {
                 {activeTab === 'dashboard' ? 'System Overview' : activeTab === 'users' ? 'Identity Management' : activeTab === 'health' ? 'Observability' : 'System Configuration'}
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '6px 14px', borderRadius: '100px',
+                  background: ping === 'Err' || parseInt(ping) > 500 ? 'rgba(234,179,8,0.1)' : 'rgba(16,185,129,0.1)',
+                  border: ping === 'Err' || parseInt(ping) > 500 ? '1px solid rgba(234,179,8,0.3)' : '1px solid rgba(16,185,129,0.3)',
+                }}>
+                  <div style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: ping === 'Err' || parseInt(ping) > 500 ? '#eab308' : '#10b981',
+                    boxShadow: ping === 'Err' || parseInt(ping) > 500 ? '0 0 8px rgba(234,179,8,0.5)' : '0 0 8px rgba(16,185,129,0.5)'
+                  }} />
+                  <span style={{
+                    fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px',
+                    color: ping === 'Err' || parseInt(ping) > 500 ? '#eab308' : '#10b981'
+                  }}>
+                    {ping === 'Err' || parseInt(ping) > 500 ? 'Degraded Performance' : 'System Operational'}
+                  </span>
+                </div>
+
                 <div style={{ fontSize: '0.85rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
                   <Clock size={14} color="#e11d48" />
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
@@ -673,6 +727,31 @@ export default function FuturisticAdminPortal() {
                         </div>
                       </div>
                     </TiltCard>
+                  </div>
+
+                  {/* LIVE TRAFFIC TICKER */}
+                  <div className="glass-panel" style={{ borderRadius: '16px', padding: '1rem 1.5rem', marginBottom: '2.5rem', display: 'flex', alignItems: 'center', gap: '1rem', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderRight: '1px solid rgba(226,232,240,1)', paddingRight: '1rem', zIndex: 2, background: 'rgba(255,255,255,0.7)' }}>
+                      <Activity size={18} color="#e11d48" />
+                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '1px' }}>Live Events</span>
+                    </div>
+                    <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                      <motion.div
+                        animate={{ x: [0, -1000] }}
+                        transition={{ repeat: Infinity, duration: 25, ease: "linear" }}
+                        style={{ display: 'flex', gap: '2rem' }}
+                      >
+                        {[...savedReports, ...savedReports].slice(0, 20).map((r, i) => (
+                          <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
+                            <span style={{ color: '#10b981' }}>[{new Date(r.created_at || Date.now()).toLocaleTimeString()}]</span>
+                            <span style={{ color: '#0f172a' }}>{(r.user_id || 'System').split('@')[0]}</span>
+                            <span>generated</span>
+                            <span style={{ color: '#e11d48', fontWeight: 700 }}>{r.words || 0} tokens</span>
+                            <span>for {r.subject || 'a report'}</span>
+                          </div>
+                        ))}
+                      </motion.div>
+                    </div>
                   </div>
 
                   {/* RECENT ACTIVITY WITH SORTING AND VIEW ARRANGEMENT */}
@@ -940,13 +1019,29 @@ export default function FuturisticAdminPortal() {
                           </div>
 
                           {/* Action Buttons */}
-                          <div style={{ padding: '1.5rem', display: 'flex', gap: '1rem', background: 'rgba(255,255,255,0.4)', borderBottom: '1px solid rgba(226,232,240,1)' }}>
-                            <button onClick={() => suspendUser(selectedUser.email, selectedUser.is_suspended)} style={{ flex: 1, padding: '12px', background: selectedUser.is_suspended ? 'rgba(16, 185, 129, 0.1)' : '#ffffff', border: `1px solid ${selectedUser.is_suspended ? 'rgba(16, 185, 129, 0.3)' : 'rgba(226,232,240,1)'}`, color: selectedUser.is_suspended ? '#10b981' : '#0f172a', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} onMouseOver={e=>e.currentTarget.style.background=selectedUser.is_suspended ? 'rgba(16, 185, 129, 0.2)' : 'rgba(241, 245, 249, 1)'} onMouseOut={e=>e.currentTarget.style.background=selectedUser.is_suspended ? 'rgba(16, 185, 129, 0.1)' : '#ffffff'}>
-                              <PowerOff size={18} /> {selectedUser.is_suspended ? 'Restore Access' : 'Suspend Account'}
+                          <div style={{ padding: '1.5rem', display: 'flex', gap: '1rem', background: 'rgba(255,255,255,0.4)', borderBottom: '1px solid rgba(226,232,240,1)', position: 'relative' }}>
+                            <button onClick={() => setUserMenuOpen(!userMenuOpen)} style={{ padding: '10px 16px', background: '#ffffff', border: '1px solid rgba(226,232,240,1)', borderRadius: '12px', color: '#0f172a', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} onMouseOver={e=>e.currentTarget.style.background='rgba(241, 245, 249, 1)'} onMouseOut={e=>e.currentTarget.style.background='#ffffff'}>
+                              Manage User Controls <span style={{ fontSize: '0.7rem' }}>▼</span>
                             </button>
-                            <button onClick={() => deleteUser(selectedUser.email)} style={{ flex: 1, padding: '12px', background: 'rgba(225, 29, 72, 0.1)', border: '1px solid rgba(225, 29, 72, 0.3)', color: '#e11d48', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }} onMouseOver={e=>e.currentTarget.style.background='rgba(225, 29, 72, 0.2)'} onMouseOut={e=>e.currentTarget.style.background='rgba(225, 29, 72, 0.1)'}>
-                              <Trash2 size={18} /> Delete Account
-                            </button>
+                            
+                            <AnimatePresence>
+                              {userMenuOpen && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                  transition={{ duration: 0.15 }}
+                                  style={{ position: 'absolute', top: '4.5rem', left: '1.5rem', background: '#ffffff', borderRadius: '16px', border: '1px solid rgba(226,232,240,1)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', overflow: 'hidden', zIndex: 50, minWidth: '220px' }}
+                                >
+                                  <div onClick={() => { suspendUser(selectedUser.email, selectedUser.is_suspended); setUserMenuOpen(false); }} style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', fontWeight: 600, color: selectedUser.is_suspended ? '#10b981' : '#f59e0b', cursor: 'pointer', borderBottom: '1px solid rgba(226,232,240,0.6)', transition: 'background 0.2s' }} onMouseOver={e=>e.currentTarget.style.background='rgba(241, 245, 249, 1)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                                    <PowerOff size={16} /> {selectedUser.is_suspended ? 'Restore Access' : 'Suspend Account'}
+                                  </div>
+                                  <div onClick={() => { deleteUser(selectedUser.email); setUserMenuOpen(false); }} style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', fontWeight: 600, color: '#e11d48', cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={e=>e.currentTarget.style.background='rgba(225, 29, 72, 0.05)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                                    <Trash2 size={16} /> Permanently Delete
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
 
                           {/* Activity Timeline & Reports */}

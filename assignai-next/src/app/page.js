@@ -23,16 +23,45 @@ async function loadPuter() {
   return window.puter;
 }
 
-async function askAI(prompt) {
+async function askAI(prompt, onChunk) {
   try {
     const res = await fetch('/api/nvidia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt, stream: !!onChunk })
     });
     if (res.ok) {
-      const data = await res.json();
-      if (data.text) return data.text;
+      if (onChunk) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulatedText = "";
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunkStr = decoder.decode(value);
+          const lines = chunkStr.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            if (trimmed === 'data: [DONE]') continue;
+            if (trimmed.startsWith('data: ')) {
+              try {
+                const json = JSON.parse(trimmed.slice(6));
+                const content = json.choices?.[0]?.delta?.content || "";
+                accumulatedText += content;
+                onChunk(accumulatedText);
+              } catch (e) {
+                // Ignore incomplete JSON chunks
+              }
+            }
+          }
+        }
+        return accumulatedText;
+      } else {
+        const data = await res.json();
+        if (data.text) return data.text;
+      }
     }
     console.warn('NVIDIA API failed or returned no text, falling back to Puter.js...');
   } catch (err) {
@@ -42,26 +71,72 @@ async function askAI(prompt) {
   // Fallback to Puter.js
   const puter = await loadPuter();
   const response = await puter.ai.chat(prompt, { model: 'gpt-4o-mini' });
-  if (typeof response === 'string') return response;
-  if (Array.isArray(response?.message?.content)) return response.message.content.map(c => c.text || '').join('\n');
-  if (typeof response?.message?.content === 'string') return response.message.content;
-  return response?.text || '';
+  let text = '';
+  if (typeof response === 'string') text = response;
+  else if (Array.isArray(response?.message?.content)) text = response.message.content.map(c => c.text || '').join('\n');
+  else if (typeof response?.message?.content === 'string') text = response.message.content;
+  else text = response?.text || '';
+
+  if (onChunk) {
+    onChunk(text);
+  }
+  return text;
 }
 
 const extractImageBase64 = async (imgResult) => {
   if (!imgResult) return '';
-  if (typeof imgResult === 'string') return imgResult;
+  
+  if (typeof imgResult === 'string' && imgResult.startsWith('data:')) {
+    // If it's already a base64 string, let's compress it to save space
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 600;
+        let w = img.width || 800;
+        let h = img.height || 600;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = () => resolve(imgResult);
+      img.src = imgResult;
+    });
+  }
+
   if (imgResult instanceof HTMLImageElement) {
-    if (imgResult.src && imgResult.src.startsWith('data:')) return imgResult.src;
     return new Promise((resolve) => {
       const toBase64 = () => {
         try {
           const canvas = document.createElement('canvas');
-          canvas.width = imgResult.width || imgResult.naturalWidth || 800;
-          canvas.height = imgResult.height || imgResult.naturalHeight || 600;
+          const maxDim = 600;
+          let w = imgResult.width || imgResult.naturalWidth || 800;
+          let h = imgResult.height || imgResult.naturalHeight || 600;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          canvas.width = w;
+          canvas.height = h;
           const ctx = canvas.getContext('2d');
-          ctx.drawImage(imgResult, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL('image/jpeg', 0.9));
+          ctx.drawImage(imgResult, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
         } catch (e) { resolve(imgResult.src || ''); }
       };
       if (imgResult.complete) toBase64();
@@ -74,6 +149,7 @@ const extractImageBase64 = async (imgResult) => {
   }
   return imgResult?.src || '';
 };
+
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -107,6 +183,7 @@ export default function Home() {
   const [loginType, setLoginType] = useState('login'); // 'login' or 'signup'
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [includeImages, setIncludeImages] = useState(true);
+  const [streamPreview, setStreamPreview] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [isSplashActive, setIsSplashActive] = useState(true);
 
@@ -247,15 +324,13 @@ export default function Home() {
 
   /* ── FETCH REAL STATS + REPORT HISTORY ── */
   useEffect(() => {
-    if (!sb || !user?.id) return;
+    if (!user?.id) return;
     
-    // Fetch reports
-    const query = user.id === 'admin-super'
-      ? sb.from('reports').select('*').order('created_at', { ascending: false })
-      : sb.from('reports').select('*').eq('user_id', user.email || user.id).order('created_at', { ascending: false });
-      
-    query.then(({ data }) => {
-        if (data) {
+    // Fetch reports from API
+    fetch(`/api/reports?email=${encodeURIComponent(user.email || user.id)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
           setSavedReports(data);
           setStats({
             reports: data.length,
@@ -263,7 +338,8 @@ export default function Home() {
             emails: new Set(data.map(r => r.user_id)).size
           });
         }
-      });
+      })
+      .catch(console.error);
   }, [user, view]);
 
   /* ── WIZARD STATE ── */
@@ -297,6 +373,11 @@ export default function Home() {
     marginRight: 15,
     fontSize: 12
   });
+
+  // Upload UX Enhancements
+  const [isDragging, setIsDragging] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualQuestions, setManualQuestions] = useState('');
 
   const handleMagicFill = async () => {
     if (!magicTopic.trim()) { toast('Please enter a topic first!', 'error'); return; }
@@ -443,14 +524,51 @@ Requirements:
            let diagramHtml = '';
            const needsDiagram = includeImages && /diagram|architecture|flowchart|block\s*diagram|structure|draw|image|illustrate|sketch|figure|picture|table/i.test(q.text);
            if (needsDiagram) {
-             try {
-               const imgResult = await puter.ai.txt2img(`Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}`, { model: 'google/imagen-4.0' });
-               if (imgResult) {
-                 const imgSrc = await extractImageBase64(imgResult);
-                 if (imgSrc) diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:400px;width:100%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
+               let imgSrc = '';
+               let nvidiaFallbackSvg = null;
+               
+               // 1. Try NVIDIA Image API (NIM SDXL) first
+               try {
+                 const res = await fetch('/api/nvidia/image', {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ prompt: `Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}` })
+                 });
+                 if (res.ok) {
+                   const data = await res.json();
+                   if (data.base64) {
+                     if (data.fallback) {
+                       nvidiaFallbackSvg = data.base64; // Save the fallback SVG in case Puter fails
+                     } else {
+                       imgSrc = data.base64; // Real SDXL image
+                     }
+                   }
+                 }
+               } catch (nvidiaErr) {
+                 console.warn('NVIDIA Image API failed in batch:', nvidiaErr);
                }
-             } catch (e) { console.log('Image generation failed', e); }
-           }
+
+               // 2. Try Gemini via Puter if NVIDIA didn't yield a real image
+               if (!imgSrc) {
+                 try {
+                   const imgResult = await puter.ai.txt2img(`Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}`, { model: 'google/imagen-4.0' });
+                   if (imgResult) {
+                     imgSrc = await extractImageBase64(imgResult);
+                   }
+                 } catch (puterErr) {
+                   console.warn('Gemini Image generation failed in batch:', puterErr.message);
+                 }
+               }
+
+               // 3. Ultimate fallback to NVIDIA SVG
+               if (!imgSrc && nvidiaFallbackSvg) {
+                 imgSrc = nvidiaFallbackSvg;
+               }
+
+               if (imgSrc) {
+                 diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:400px;width:100%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
+               }
+             }
            
            answers.push({ ...q, num: j + 1, answerHTML: rawHTML + diagramHtml });
         }
@@ -470,13 +588,18 @@ Requirements:
         
         zip.file(`${student.name.replace(/[^a-z0-9]/gi, '_')}_${form.subject.replace(/[^a-z0-9]/gi, '_')}.docx`, blob);
         
-        if (sb && user) {
-          await sb.from('reports').insert([{
-            user_id: user.email || user.id,
-            assignment_title: form.title,
-            subject: `${form.subject} | Student: ${student.name}`,
-            word_count: answers.reduce((sum, a) => sum + (a.answerHTML.split(' ').length), 0)
-          }]);
+        if (user) {
+          await fetch('/api/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.email || user.id,
+              title: form.title,
+              subject: `${form.subject} | Student: ${student.name}`,
+              htmlContent: '[]',
+              wordCount: answers.reduce((sum, a) => sum + (a.answerHTML.split(' ').length), 0)
+            })
+          });
         }
         
       } catch (err) {
@@ -522,7 +645,7 @@ ${rawText.substring(0, 8000)}`;
       let parsed = JSON.parse(jsonText);
       
       if (Array.isArray(parsed) && parsed.length > 0) {
-        setExtractedQuestions(parsed);
+        setExtractedQuestions(parsed.map(q => ({ ...q, included: true })));
         toast(`✨ AI perfectly extracted ${parsed.length} questions!`, 'success');
         return true;
       }
@@ -608,7 +731,7 @@ ${rawText.substring(0, 8000)}`;
           if (!success) {
              // Fallback
              const lines = rawText.split('\n').filter(l => l.trim().length > 15);
-             setExtractedQuestions(lines.map((l, i) => ({ unit: 'Unit 1', num: i + 1, text: l.trim() })));
+             setExtractedQuestions(lines.map((l, i) => ({ unit: 'Unit 1', num: i + 1, text: l.trim(), included: true })));
              toast(`Extracted ${lines.length} questions using fallback.`, 'success');
           }
 
@@ -627,7 +750,7 @@ ${rawText.substring(0, 8000)}`;
         const success = await parseQuestionsWithAI(result.data.text);
         if (!success) {
            const lines = result.data.text.split('\n').filter(l => l.trim().length > 10);
-           setExtractedQuestions(lines.map((l, i) => ({ unit: 'Unit 1', num: i + 1, text: l.trim() })));
+           setExtractedQuestions(lines.map((l, i) => ({ unit: 'Unit 1', num: i + 1, text: l.trim(), included: true })));
            toast(`Extracted ${lines.length} questions from image fallback.`, 'success');
         }
       } catch (e) {
@@ -640,7 +763,7 @@ ${rawText.substring(0, 8000)}`;
         const success = await parseQuestionsWithAI(ev.target.result);
         if (!success) {
           const lines = ev.target.result.split('\n').filter(l => l.trim().length > 5);
-          setExtractedQuestions(lines.map((l, i) => ({ unit: 'Unit 1', num: i + 1, text: l.trim() })));
+          setExtractedQuestions(lines.map((l, i) => ({ unit: 'Unit 1', num: i + 1, text: l.trim(), included: true })));
           toast(`Loaded ${lines.length} questions using fallback.`, 'success');
         }
         setIsExtracting(false);
@@ -676,9 +799,13 @@ ${rawText.substring(0, 8000)}`;
 
       // 3. Generate each answer
       const answers = [];
-      const total = extractedQuestions.length;
+      const questionsToGenerate = extractedQuestions.filter(q => q.included !== false);
+      const total = questionsToGenerate.length;
+      
+      if (total === 0) { toast('No questions selected!', 'error'); setGenerating(false); return; }
+
       for (let i = 0; i < total; i++) {
-        const q = extractedQuestions[i];
+        const q = questionsToGenerate[i];
         const seqNum = i + 1; // Always sequential: 1, 2, 3...
         setGenLogs(l => [...l, { text: `✨ Q${seqNum}: ${q.text.substring(0, 60)}...`, status: 'active' }]);
 
@@ -737,7 +864,11 @@ CRITICAL: DO NOT generate any image placeholders, markdown images (![alt](url)),
             setGenLogs(l => { const c = [...l]; const idx = c.findLastIndex(x => x.text.startsWith(`✨ Q${seqNum}`)); if (idx >= 0) c[idx] = { text: `✨ Q${seqNum}: Pass 1 (Researching)...`, status: 'active' }; return c; });
             
             // Pass 1 Call
-            let rawMarkdown = await askAI(contentPrompt);
+            setStreamPreview('');
+            let rawMarkdown = await askAI(contentPrompt, (txt) => {
+              const wordCount = txt.split(/\s+/).filter(Boolean).length;
+              setStreamPreview(`${txt}\n\n📊 Words: ${wordCount}`);
+            });
 
             if (rawMarkdown.length < 50) throw new Error("Pass 1: Content too short");
 
@@ -759,12 +890,17 @@ CRITICAL RULES:
 Raw Text:
 ${rawMarkdown}`;
 
-            let currentText = await askAI(formatPrompt);
+            setStreamPreview('');
+            let currentText = await askAI(formatPrompt, (txt) => {
+              const wordCount = txt.split(/\s+/).filter(Boolean).length;
+              setStreamPreview(`${txt}\n\n📊 Words: ${wordCount} (Formatting...)`);
+            });
 
             currentText = String(currentText).replace(/```html/gi, '').replace(/```/g, '').trim();
+            setStreamPreview('');
             
             if (currentText.length > 50) {
-              const isNewUnit = i === 0 || q.unit !== extractedQuestions[i - 1].unit;
+              const isNewUnit = i === 0 || q.unit !== questionsToGenerate[i - 1].unit;
               const unitHeading = (showUnits && isNewUnit && q.unit) ? `<h1 class="unit-heading avoid-break" style="text-align:center; font-size: 20pt; margin-top: 30pt; margin-bottom: 15pt; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 5pt;">${q.unit}</h1>\n` : '';
               const qPrefix = showQNums ? (q.num ? `Q${q.num}. ` : `Q${seqNum}. `) : '';
               answerText = unitHeading + `<h2 class="q-heading avoid-break">${qPrefix}${q.text}</h2>\n` + currentText;
@@ -790,51 +926,66 @@ ${rawMarkdown}`;
         if (needsDiagram) {
           setGenLogs(l => [...l, { text: `🎨 Generating diagram for Q${seqNum}...`, status: 'active' }]);
           try {
-            // Try Free API first (Pollinations AI) to save Puter credits
-            let imgSrc = '';
-            try {
-               const prompt = `Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}`;
-               const encodedPrompt = encodeURIComponent(prompt);
-               const polyUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=600&height=400&nologo=true&seed=${Math.floor(Math.random() * 10000)}`;
-               
-               // Fetch it to base64 to ensure it loads properly and isn't blocked by the browser
-               const controller = new AbortController();
-               const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-               const res = await fetch(polyUrl, { signal: controller.signal });
-               clearTimeout(timeoutId);
-               
-               if (!res.ok) throw new Error('Pollinations returned ' + res.status);
-               const blob = await res.blob();
-               imgSrc = await new Promise((resolve) => {
-                 const reader = new FileReader();
-                 reader.onloadend = () => resolve(reader.result);
-                 reader.readAsDataURL(blob);
-               });
-            } catch(e) {
-               console.warn("Pollinations failed, falling back to Puter:", e.message);
-               // Fallback to Puter
-               const imgResult = await puter.ai.txt2img(`Professional academic style diagram for a college report. Subject: ${form.subject}. Topic: ${q.text}`, { model: 'google/imagen-4.0' });
-               const puterUrl = typeof imgResult === 'string' ? imgResult : (imgResult?.url || '');
-               
-               // Convert puter url to base64 as well if possible
-               if (puterUrl) {
-                 try {
-                   const res = await fetch(puterUrl);
-                   const blob = await res.blob();
-                   imgSrc = await new Promise((resolve) => {
-                     const reader = new FileReader();
-                     reader.onloadend = () => resolve(reader.result);
-                     reader.readAsDataURL(blob);
-                   });
-                 } catch(err) {
-                   imgSrc = puterUrl; // Fallback to raw URL
-                 }
-               }
-            }
+             let imgSrc = '';
+             let nvidiaFallbackSvg = null;
 
-            if (imgSrc) {
-              diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:400px;width:100%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
-            }
+             // 1. Try NVIDIA Image API (NIM SDXL) first
+             try {
+                const prompt = `Professional academic style diagram for a college report. Clear, technical, minimalist educational illustration. Subject: ${form.subject}. Topic: ${q.text}`;
+                const res = await fetch('/api/nvidia/image', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ prompt })
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.base64) {
+                    if (data.fallback) {
+                      nvidiaFallbackSvg = data.base64; // Save the fallback SVG in case Puter fails
+                    } else {
+                      imgSrc = data.base64; // Real SDXL image
+                    }
+                  }
+                }
+             } catch (nvidiaErr) {
+                console.warn('NVIDIA Image API failed:', nvidiaErr);
+             }
+
+             // 2. Try Gemini via Puter if NVIDIA didn't yield a real image
+             if (!imgSrc) {
+                try {
+                  const imgResult = await puter.ai.txt2img(`Professional academic style diagram for a college report. Subject: ${form.subject}. Topic: ${q.text}`, { model: 'google/imagen-4.0' });
+                  const puterUrl = typeof imgResult === 'string' ? imgResult : (imgResult?.url || '');
+                  
+                  // Convert puter url to base64 if possible
+                  if (puterUrl) {
+                    try {
+                      const res = await fetch(puterUrl);
+                      const blob = await res.blob();
+                      imgSrc = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.readAsDataURL(blob);
+                      });
+                    } catch(err) {
+                      imgSrc = puterUrl; // Fallback to raw URL
+                    }
+                  }
+                } catch(puterErr) {
+                  console.warn("Puter Gemini Image failed, falling back to NVIDIA SVG:", puterErr.message);
+                }
+             }
+
+             // 3. Ultimate fallback to NVIDIA SVG
+             if (!imgSrc && nvidiaFallbackSvg) {
+                imgSrc = nvidiaFallbackSvg;
+             }
+
+             if (!imgSrc) throw new Error('All image generation methods failed');
+
+             if (imgSrc) {
+               diagramHtml = `<div style="text-align:center;margin:1rem 0"><img src="${imgSrc}" alt="Diagram" style="max-width:400px;width:100%;border:1px solid #ccc;border-radius:4px"/><p style="font-style:italic;font-size:10pt;color:#666">Fig: Illustration for ${q.text.substring(0, 40)}</p></div>`;
+             }
             setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: `🎨 Diagram generated for Q${seqNum}`, status: 'done' }; return c; });
           } catch (e) {
             setGenLogs(l => { const c = [...l]; c[c.length - 1] = { text: `🎨 Diagram skipped (${e.message})`, status: 'error' }; return c; });
@@ -854,23 +1005,24 @@ ${rawMarkdown}`;
         const finalSubject = studentNames ? `${form.subject} | Student: ${studentNames}` : form.subject;
         const userId = user?.id || null;
 
-        // Strip Base64 images from history to prevent massive payload sizes and DB limits
-        const lightweightAnswers = answers.map(a => ({
-          ...a,
-          answerHTML: (a.answerHTML || '').replace(/<img[^>]+src="data:image\/[^">]+"[^>]*>/g, '<div class="img-placeholder">[Image Archived]</div>')
-        }));
-
-        // Use client-side Supabase to save
-        if (sb && userId) {
-          const { error: dbErr } = await sb.from('reports').insert([{
-            user_id: userId,
-            assignment_title: form.title,
-            subject: finalSubject,
-            html_content: JSON.stringify(lightweightAnswers),
-            word_count: wordCount
-          }]);
-          if (dbErr) throw dbErr;
-        } else if (sb && !userId) {
+        // Save using API endpoint
+        if (userId) {
+          const apiRes = await fetch('/api/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: userId,
+              title: form.title,
+              subject: finalSubject,
+              htmlContent: JSON.stringify(answers),
+              wordCount: wordCount
+            })
+          });
+          if (!apiRes.ok) {
+            const errData = await apiRes.json();
+            throw new Error(errData.error || 'Failed to save to cloud database');
+          }
+        } else {
           console.warn("Skipping DB save: User not authenticated or missing UUID.");
         }
 
@@ -1079,7 +1231,7 @@ ${rawMarkdown}`;
         <motion.div key="app-view" initial={{ opacity: 0, filter: 'blur(10px)', y: 20 }} animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }} exit={{ opacity: 0, filter: 'blur(10px)', y: -20 }} transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }} style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       {/* ── TOPBAR ── */}
       <header className="topbar">
-        <div className="brand" onClick={() => user ? setView('dashboard') : null} style={{ cursor: 'pointer' }}>
+        <div className="brand" onClick={() => user ? setView('dashboard') : setView('landing')} style={{ cursor: 'pointer' }}>
           <span style={{ fontSize: '1.5rem' }}>🎓</span>
           <span className="text-gradient">AssignAI</span>
           <span className="badge badge-success" style={{ marginLeft: '0.5rem', fontSize: '0.6rem' }}>PRO</span>
@@ -1401,18 +1553,65 @@ ${rawMarkdown}`;
                 <h2 style={{ marginBottom: '0.5rem' }}>Upload Question Paper</h2>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Upload a PDF or text file. Questions will be auto-extracted and you can edit them.</p>
 
-                {isExtracting ? (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setManualMode(!manualMode)}>
+                    {manualMode ? '📁 Switch to File Upload' : '✍️ Type Questions Manually'}
+                  </button>
+                </div>
+
+                {manualMode ? (
+                  <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', border: '1px solid var(--border)' }}>
+                    <h3 style={{ marginBottom: '1rem' }}>Manual Entry</h3>
+                    <textarea 
+                      className="form-control" 
+                      style={{ width: '100%', minHeight: '200px', resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}
+                      placeholder="Paste your questions here... (one per line)&#10;1. Explain operating systems.&#10;2. What is virtual memory? [5 marks]"
+                      value={manualQuestions}
+                      onChange={e => setManualQuestions(e.target.value)}
+                    />
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ marginTop: '1rem', width: '100%' }}
+                      onClick={async () => {
+                        if (!manualQuestions.trim()) { toast('Please enter some questions', 'error'); return; }
+                        setIsExtracting(true);
+                        setExtractStatus('Parsing manual questions...');
+                        const success = await parseQuestionsWithAI(manualQuestions);
+                        if (!success) {
+                          const lines = manualQuestions.split('\n').filter(l => l.trim().length > 5);
+                          setExtractedQuestions(lines.map((l, i) => ({ unit: 'Unit 1', num: i + 1, text: l.trim(), included: true })));
+                          toast(`Loaded ${lines.length} questions manually.`, 'success');
+                        }
+                        setIsExtracting(false);
+                        setManualMode(false);
+                      }}
+                    >
+                      Process Questions
+                    </button>
+                  </div>
+                ) : isExtracting ? (
                   <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'rgba(0,0,0,0.4)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--accent)', marginBottom: '2rem' }}>
                     <div className="spinner" style={{ width: '40px', height: '40px', border: '3px solid rgba(236,72,153,0.3)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }}></div>
                     <h3 style={{ color: '#fff', marginBottom: '0.5rem' }}>Processing Document</h3>
                     <p style={{ color: 'var(--text-secondary)' }}>{extractStatus}</p>
                   </div>
                 ) : (
-                  <div className="upload-zone">
-                    <input type="file" accept=".pdf,.txt" onChange={handleFile} />
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
-                    <h3>Drop your file here</h3>
-                    <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>PDF, TXT supported &bull; Real PDF.js extraction</p>
+                  <div 
+                    className="upload-zone" 
+                    style={{ 
+                      position: 'relative', overflow: 'hidden', transition: 'all 0.3s ease',
+                      border: isDragging ? '2px dashed var(--accent)' : '2px dashed var(--border)',
+                      background: isDragging ? 'rgba(236,72,153,0.05)' : 'rgba(0,0,0,0.2)',
+                      boxShadow: isDragging ? '0 0 30px rgba(236,72,153,0.2)' : 'none'
+                    }}
+                    onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={e => { e.preventDefault(); setIsDragging(false); handleFile({ target: { files: e.dataTransfer.files } }); }}
+                  >
+                    <input type="file" accept=".pdf,.txt,image/*" onChange={handleFile} capture="environment" />
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem', filter: isDragging ? 'drop-shadow(0 0 10px rgba(236,72,153,0.8))' : 'none' }}>📂</div>
+                    <h3 style={{ color: isDragging ? 'var(--accent)' : 'inherit' }}>Drop your file here</h3>
+                    <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>PDF, TXT, or Image (Camera supported) &bull; Real PDF.js extraction</p>
                   </div>
                 )}
 
@@ -1500,8 +1699,43 @@ ${rawMarkdown}`;
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
                   <div><span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>TITLE</span><br /><strong>{form.title}</strong></div>
                   <div><span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>SUBJECT</span><br /><strong>{form.subject}</strong></div>
-                  <div><span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>DEPARTMENT</span><br /><strong>{form.dept}</strong></div>
-                  <div><span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>QUESTIONS</span><br /><strong>{extractedQuestions.length} questions</strong></div>
+                  <div>
+                    <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>ESTIMATED TIME</span><br />
+                    <strong>~{Math.ceil(extractedQuestions.filter(q => q.included !== false).length * 0.5)} min</strong>
+                  </div>
+                  <div>
+                    <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>SELECTED QUESTIONS</span><br />
+                    <strong>{extractedQuestions.filter(q => q.included !== false).length} / {extractedQuestions.length}</strong>
+                  </div>
+                </div>
+
+                <h4 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Select Questions to Generate</h4>
+                <div style={{ maxHeight: '250px', overflowY: 'auto', marginBottom: '2rem', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {extractedQuestions.map((q, i) => (
+                    <div key={i} style={{ 
+                      display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', 
+                      background: q.included !== false ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.3)', 
+                      borderRadius: '8px',
+                      opacity: q.included !== false ? 1 : 0.5,
+                      border: q.included !== false ? '1px solid rgba(236,72,153,0.3)' : '1px solid var(--border)',
+                      transition: 'all 0.2s'
+                    }}>
+                      <input 
+                        type="checkbox" 
+                        checked={q.included !== false}
+                        onChange={e => {
+                          const u = [...extractedQuestions];
+                          u[i].included = e.target.checked;
+                          setExtractedQuestions(u);
+                        }}
+                        style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer', flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, fontSize: '0.85rem' }}>
+                        <span style={{ color: 'var(--accent)', fontWeight: 'bold', marginRight: '0.5rem' }}>Q{q.num}.</span>
+                        {q.text}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <h4 style={{ marginBottom: '0.5rem' }}>Team</h4>
@@ -1531,7 +1765,13 @@ ${rawMarkdown}`;
 
                   <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     
-                    {generating && <div style={{ width: '40px', height: '40px', borderWidth: '3px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.1)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '1.5rem' }} />}
+                    {generating && (
+                      <div className="loader-hologram">
+                        <div className="loader-ring loader-ring-outer"></div>
+                        <div className="loader-ring loader-ring-inner"></div>
+                        <div className="loader-core"></div>
+                      </div>
+                    )}
                     {!generating && genProgress === 100 && <div style={{ fontSize: '3rem', marginBottom: '1rem', animation: 'slideIn 0.5s ease-out' }}>✔</div>}
                     
                     <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', textAlign: 'center', fontWeight: '800', color: '#fff', letterSpacing: '-0.02em' }}>
@@ -1577,25 +1817,36 @@ ${rawMarkdown}`;
                     </div>
 
                     {/* Log Terminal */}
-                    <div style={{ 
-                      width: '100%', background: '#000000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', 
-                      padding: '1.25rem', height: '200px', overflowY: 'auto', textAlign: 'left', 
-                      fontFamily: 'monospace', fontSize: '0.85rem', color: '#888'
+                    <div className="cyber-console" style={{ 
+                      width: '100%', height: '220px', overflowY: 'auto', textAlign: 'left', 
+                      fontFamily: 'monospace', fontSize: '0.85rem', color: '#888', padding: '1.25rem'
                     }}>
-                      <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#333' }} />
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#444' }} />
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#555' }} />
+                      <div className="cyber-scanline"></div>
+                      <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem', position: 'relative', zIndex: 10 }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 8px #fbbf24' }} />
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
                       </div>
-                      {genLogs.map((log, i) => (
-                        <div key={i} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start', gap: '8px', lineHeight: 1.4 }}>
-                          <span style={{ opacity: 0.3 }}>[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
-                          <span style={{ 
-                            color: log.status === 'error' ? '#ef4444' : log.status === 'done' ? '#fff' : '#888',
-                            fontWeight: log.status === 'active' ? 'bold' : 'normal'
-                          }}>{log.text}</span>
-                        </div>
-                      ))}
+                      <div style={{ position: 'relative', zIndex: 10 }}>
+                        {genLogs.map((log, i) => (
+                          <div key={i} style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start', gap: '8px', lineHeight: 1.4 }}>
+                            <span style={{ opacity: 0.3 }}>[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
+                            <span style={{ 
+                              color: log.status === 'error' ? '#ef4444' : log.status === 'done' ? '#10b981' : '#888',
+                              fontWeight: log.status === 'active' ? 'bold' : 'normal',
+                              textShadow: log.status === 'active' ? '0 0 8px rgba(255,255,255,0.3)' : 'none'
+                            }}>{log.text}</span>
+                          </div>
+                        ))}
+                        {streamPreview && (
+                          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed rgba(236,72,153,0.3)' }}>
+                            <span style={{ fontWeight: 'bold', color: '#ec4899', fontSize: '0.75rem', letterSpacing: '1px', display: 'block', marginBottom: '0.5rem', textShadow: '0 0 10px rgba(236,72,153,0.6)' }}>⚡ LIVE AI STREAM:</span>
+                            <div style={{ fontSize: '0.8rem', lineHeight: 1.5, color: '#00ffff', textShadow: '0 0 5px rgba(0,255,255,0.4)', whiteSpace: 'pre-wrap', maxHeight: '100px', overflowY: 'auto' }}>
+                              {streamPreview}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                   </div>

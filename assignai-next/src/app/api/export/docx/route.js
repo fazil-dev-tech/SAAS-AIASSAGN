@@ -21,7 +21,7 @@ const docxSchema = z.object({
 });
 
 /* ── Convert HTML string to an array of docx Paragraph objects ── */
-function htmlToDocxParagraphs(html) {
+async function htmlToDocxParagraphs(html) {
   const paragraphs = [];
   const cleanHtml = (html || '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -57,7 +57,7 @@ function htmlToDocxParagraphs(html) {
     return runs;
   }
 
-  function processNodes(nodes) {
+  async function processNodes(nodes) {
     for (const node of nodes) {
       if (node.nodeType === 3) {
         let text = node.text;
@@ -101,23 +101,39 @@ function htmlToDocxParagraphs(html) {
         if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs, spacing: { after: 120 }, alignment: AlignmentType.JUSTIFIED, widowControl: true }));
       } else if (tag === 'img') {
         const src = node.getAttribute('src');
-        if (src && src.startsWith('data:image')) {
-          const base64Data = src.replace(/^data:image\/\w+;base64,/, '');
-          paragraphs.push(
-            new Paragraph({
-              children: [
-                new ImageRun({
-                  data: Buffer.from(base64Data, 'base64'),
-                  transformation: { width: 450, height: 450 }
-                })
-              ],
-              alignment: AlignmentType.CENTER,
-              spacing: { before: 200, after: 200 }
-            })
-          );
+        if (src) {
+          let imageBuffer = null;
+          if (src.startsWith('data:image')) {
+            const base64Data = src.replace(/^data:image\/\w+;base64,/, '');
+            imageBuffer = Buffer.from(base64Data, 'base64');
+          } else if (src.startsWith('http')) {
+            try {
+              const res = await fetch(src);
+              if (res.ok) {
+                const arrayBuffer = await res.arrayBuffer();
+                imageBuffer = Buffer.from(arrayBuffer);
+              }
+            } catch (err) {
+              console.error("Error fetching image from URL in DOCX exporter:", err);
+            }
+          }
+          if (imageBuffer) {
+            paragraphs.push(
+              new Paragraph({
+                children: [
+                  new ImageRun({
+                    data: imageBuffer,
+                    transformation: { width: 450, height: 450 }
+                  })
+                ],
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 200, after: 200 }
+              })
+            );
+          }
         }
       } else if (tag === 'div' || tag === 'section' || tag === 'article' || tag === 'span' || tag === 'center') {
-        processNodes(node.childNodes);
+        await processNodes(node.childNodes);
       } else if (tag === 'strong' || tag === 'b' || tag === 'em' || tag === 'i') {
         const runs = parseTextRuns(node);
         if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs, spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED, widowControl: true }));
@@ -128,7 +144,7 @@ function htmlToDocxParagraphs(html) {
     }
   }
 
-  processNodes(root.childNodes);
+  await processNodes(root.childNodes);
   return paragraphs;
 }
 
@@ -270,25 +286,22 @@ export async function POST(request) {
               ]
             })
           },
-          children: [
-            // ANSWERS — properly formatted from HTML
-            ...(function() {
-              return (answers || []).flatMap((a, idx) => {
-                const blocks = [];
-                
-                if (idx > 0) {
-                  blocks.push(new Paragraph({ pageBreakBefore: true, text: "" }));
-                }
-
-                blocks.push(...htmlToDocxParagraphs(a.answerHTML));
-                
-                return blocks;
-              });
-            })(),
-          ],
+          children: await (async function() {
+            const blocks = [];
+            for (let idx = 0; idx < (answers || []).length; idx++) {
+              const a = answers[idx];
+              if (idx > 0) {
+                blocks.push(new Paragraph({ pageBreakBefore: true, text: "" }));
+              }
+              const paras = await htmlToDocxParagraphs(a.answerHTML);
+              blocks.push(...paras);
+            }
+            return blocks;
+          })(),
         },
       ],
     });
+
 
     const buffer = await Packer.toBuffer(doc);
 
